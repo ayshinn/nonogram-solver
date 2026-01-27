@@ -6,27 +6,29 @@ DATA STRUCTURES
 ON ROWS SIDE
 (rows and numbers might just be merged into one) list of 2N lists of segments.
 
-Numbers: [[XRow, XRow, XRow], [YRow, YRow, YRow]] (or could do one long list, any above N index is just y row)
+  Numbers = [[XRow, XRow, XRow], [YRow, YRow, YRow]] (or could do one long list, any above N index is just y row)
 
-Row: {
-  segments: Segment[]
-}
+  Row: {
+    segments: Segment[]
+  }
 
-Segment: {
-  number (length shown in game)
-  bool (completed or not)
-}
+  Segment: {
+    number (length shown in game)
+    bool (completed or not)
+  }
 
 ON BOARD SIDE
-Grid: [[Space, Space, Space], [Space, Space, Space], ...]
+  Grid: [[Space, Space, Space], [Space, Space, Space], ...]
 
-Space: {
-  coordinate (maybe unneeded since part of Grid?)
-  x segment it's part of
-  y segment it's part of
-  status (emoji)
-}
+  Space: {
+    coordinate (maybe unneeded since part of Grid?)
+    x segment it's part of
+    y segment it's part of
+    status (emoji)
+  }
 
+OPTIONAL
+  Queue of xrow or yrows to process next (recently changed)
 
 
 ALGORITHM

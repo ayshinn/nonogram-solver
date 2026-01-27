@@ -44,7 +44,7 @@ def create_board(filename: str):
   print(board_size)
 
   numbers = []
-  for i in range(2 * board_size):
+  for _ in range(2 * board_size):
     content = file.readline()
     nums = [Segment(int(x)) for x in content.split(',')]
     if nums[0].number != 0:
@@ -53,9 +53,9 @@ def create_board(filename: str):
 
   board = []
 
-  for i in range(board_size):
+  for _ in range(board_size):
     row = []
-    for j in range(board_size):
+    for _ in range(board_size):
       space = Space()
       row.append(space)
     board.append(row)
