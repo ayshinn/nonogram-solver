@@ -1,28 +1,69 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Customizable Nonogram Game</title>
-</head>
-<body>
-  <h1>Customizable Nonogram Game</h1>
-  <label for="gridSize">Grid Size:</label>
-  <input type="number" id="gridSize" value="5" min="5">
-  <button id="createGridBtn">Create Grid</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Nonogram Solver</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <h1>Nonogram Solver</h1>
+      <p class="site-tagline">
+        Manually enter a puzzle to play or (soon) upload a grid image.
+      </p>
+    </header>
 
-  <div id="inputArea" style="display: none;">
-    <h2>Input Row and Column Hints</h2>
-    <label for="rowHints">Row Hints (newline and comma separated ):</label><br>
-    <textarea id="rowHints" rows="5" cols="50"></textarea><br>
-    <label for="colHints">Column Hints (newline and comma separated):</label><br>
-    <textarea id="colHints" rows="5" cols="50"></textarea><br>
-    <button id="initializeGameBtn">Initialize Game</button>
-  </div>
+    <main class="site-main">
+      <section class="controls" aria-label="Puzzle setup">
+        <fieldset class="controls-group">
+          <legend>Puzzle</legend>
+          <label class="field">
+            <span class="field-label">Grid size (N &times; N, 5 to 25)</span>
+            <input type="number" id="gridSize" min="5" max="25" value="5" />
+          </label>
+          <label class="field">
+            <span class="field-label"
+              >Row hints &mdash; one row per line, numbers separated by
+              commas</span
+            >
+            <textarea
+              id="rowHints"
+              rows="6"
+              spellcheck="false"
+              placeholder="e.g.&#10;1&#10;3&#10;5&#10;3,1&#10;3"
+            ></textarea>
+          </label>
+          <label class="field">
+            <span class="field-label"
+              >Column hints &mdash; one column per line</span
+            >
+            <textarea
+              id="colHints"
+              rows="6"
+              spellcheck="false"
+              placeholder="e.g.&#10;2&#10;4&#10;5&#10;2,1&#10;2"
+            ></textarea>
+          </label>
+        </fieldset>
+        <div class="controls-buttons">
+          <button type="button" id="initializeBtn" class="btn btn--primary">
+            Initialize
+          </button>
+          <button type="button" id="solveBtn" class="btn">Solve</button>
+          <button type="button" id="clearBtn" class="btn">Clear Board</button>
+          <button type="button" id="resetBtn" class="btn btn--ghost">
+            Reset
+          </button>
+        </div>
+      </section>
 
-  <table id="nonogramTable"></table>
-  <button style="display: none;" id="solveButton">Solve Nonogram</button>
+      <section class="board-area" aria-label="Puzzle board">
+        <div id="board-root" class="board"></div>
+      </section>
+    </main>
 
-  <script type="module" src="/src/main.ts"></script>
-</body>
+    <div id="statusBar" class="status" role="status" aria-live="polite"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>

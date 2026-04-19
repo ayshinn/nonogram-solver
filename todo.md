@@ -25,31 +25,31 @@ Goal: introduce Vite + TypeScript + Vitest without changing runtime behavior.
 Goal: real types, real UI, keyboard nav, responsive layout. Manual play works; solver button is a stub.
 
 ### Domain model
-- [ ] `src/types.ts` with `CellState`, `Hint`, `Hints`, `Board`, `Placement`, `SolveResult`, `SolveOptions`.
-- [ ] `src/model/board.ts`: `createBoard`, `cloneBoard`, `get`, `set`, `getRow`, `getCol`, `setRow`, `setCol`, `isComplete`.
-- [ ] `src/model/hints.ts`: `parseHintText`, `validateHints`, `deriveHintsFromBoard`.
+- [x] `src/types.ts` with `CellState`, `Hint`, `Hints`, `Board`, `Placement`, `SolveResult`, `SolveOptions`.
+- [x] `src/model/board.ts`: `createBoard`, `cloneBoard`, `getCell`, `setCell`, `getRow`, `getCol`, `setRow`, `setCol`, `isComplete`.
+- [x] `src/model/hints.ts`: `parseHintText`, `validateHints`, `deriveHintsFromBoard`.
 
 ### UI
-- [ ] `src/ui/app.ts` as top-level controller.
-- [ ] `src/ui/controls.ts`: size input, textareas, file input, buttons (Initialize / Solve / Clear / Reset).
-- [ ] `src/ui/hintsView.ts`: row + column hint bands.
-- [ ] `src/ui/boardView.ts`: CSS-Grid board render; diff-update by `data-state` attribute on changed cells only.
-- [ ] `src/ui/keyboard.ts`: arrow movement, Space/F fill, X cross, Esc returns focus.
-- [ ] `src/ui/status.ts`: `aria-live="polite"` banner for errors + solver status.
+- [x] `src/ui/app.ts` as top-level controller.
+- [x] `src/ui/controls.ts`: size input, textareas, buttons (Initialize / Solve / Clear / Reset). *File input deferred to Phase 4.*
+- [x] `src/ui/hintsView.ts`: row + column hint bands.
+- [x] `src/ui/boardView.ts`: CSS-Grid board render; diff-update by `data-state` attribute on changed cells only.
+- [x] `src/ui/keyboard.ts`: arrow movement, Space/F fill, X cross, Esc returns focus.
+- [x] `src/ui/status.ts`: `aria-live="polite"` banner for errors + solver status.
 
 ### Styles
-- [ ] `src/styles/variables.css`: color tokens, `--cell-size`, spacing, light + dark theme.
-- [ ] `src/styles/layout.css`: header, controls, board region, responsive breakpoint at ≤720px.
-- [ ] `src/styles/board.css`: cell visual states, 5n borders, focus ring, SVG X for empty cells.
-- [ ] `src/styles/main.css`: imports the above.
+- [x] `src/styles/variables.css`: color tokens, `--cell-size`, spacing, light + dark theme.
+- [x] `src/styles/layout.css`: header, controls, board region, responsive breakpoint at ≤720px.
+- [x] `src/styles/board.css`: cell visual states, 5n borders, focus ring, X for empty cells (pseudo-element; SVG-background upgrade deferred to Phase 5 polish).
+- [x] `src/styles/main.css`: imports the above.
 
 ### Cleanup
-- [ ] Delete legacy `js/setup.js` and `css/style.css`.
-- [ ] Remove any references to them from `index.html` / `main.ts`.
+- [x] Delete legacy `js/setup.js` and `css/style.css`.
+- [x] Remove any references to them from `index.html` / `main.ts`.
 
 ### Tests
-- [ ] `test/model/hints.test.ts` — parse/validate/derive happy paths + rejection cases.
-- [ ] `test/fixtures/puzzles.ts` — seed a few known puzzles with solutions.
+- [x] `test/model/hints.test.ts` — parse/validate/derive happy paths + rejection cases.
+- [x] `test/fixtures/puzzles.ts` — seed a few known puzzles with solutions.
 
 **Acceptance**: user can set N, enter hints, initialize the board, fill/cross cells with mouse and keyboard, on desktop and mobile viewport sizes. `npm test` green.
 
