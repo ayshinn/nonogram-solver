@@ -130,3 +130,5 @@ function solveNonogram() {
   }
   updateGrid();
 }
+
+export { createGrid, initializeGame, solveNonogram };

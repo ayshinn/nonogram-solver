@@ -8,13 +8,13 @@ Phase-by-phase checklist. Each phase should ship a working app. See `spec.md` fo
 
 Goal: introduce Vite + TypeScript + Vitest without changing runtime behavior.
 
-- [ ] Add `package.json` with `vite`, `typescript`, `vitest`, `@types/node`, `@vitest/coverage-v8`.
-- [ ] Scripts: `dev`, `build`, `preview`, `test`, `test:watch`, `typecheck`.
-- [ ] Add `vite.config.ts` (`base: './'`, Vitest block with `environment: 'jsdom'`, `globals: true`, v8 coverage).
-- [ ] Add `tsconfig.json` (`strict`, `noUncheckedIndexedAccess`, `module: ESNext`, `moduleResolution: bundler`, `target: ES2022`).
-- [ ] Extend `.gitignore` for `node_modules`, `dist`, `coverage`.
-- [ ] Create `src/main.ts` that imports the legacy `js/setup.js` and `css/style.css` so the current UI renders unchanged under Vite.
-- [ ] Rewrite `index.html` to load `<script type="module" src="/src/main.ts">` and remove inline `onclick` handlers (wire via `main.ts`).
+- [x] Add `package.json` with `vite`, `typescript`, `vitest`, `@types/node`, `@vitest/coverage-v8`.
+- [x] Scripts: `dev`, `build`, `preview`, `test`, `test:watch`, `typecheck`.
+- [x] Add `vite.config.ts` (`base: './'`, Vitest block with `environment: 'jsdom'`, `globals: true`, v8 coverage).
+- [x] Add `tsconfig.json` (`strict`, `noUncheckedIndexedAccess`, `module: ESNext`, `moduleResolution: bundler`, `target: ES2022`).
+- [x] Extend `.gitignore` for `node_modules`, `dist`, `coverage`.
+- [x] Create `src/main.ts` that imports the legacy `js/setup.js` and `css/style.css` so the current UI renders unchanged under Vite.
+- [x] Rewrite `index.html` to load `<script type="module" src="/src/main.ts">` and remove inline `onclick` handlers (wire via `main.ts`).
 
 **Acceptance**: `npm install` → `npm run dev` serves a working page identical to the current prototype. `npm run build` produces `dist/`. `npm run preview` serves the build.
 
