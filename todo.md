@@ -59,20 +59,20 @@ Goal: real types, real UI, keyboard nav, responsive layout. Manual play works; s
 
 Goal: `solve()` works for puzzles that don't require guessing.
 
-- [ ] `src/solver/candidates.ts`: enumerate placements via stars-and-bars over slack; filter against known cells.
-- [ ] `src/solver/linesolver.ts`: intersection-based `solveLine(line, hint)`.
-- [ ] `src/solver/propagate.ts`: dirty-line fixed-point loop.
-- [ ] `src/solver/validate.ts`: `satisfies(board, hints)`.
-- [ ] `src/solver/index.ts`: public `solve(hints, opts)` calling propagate (returns `solved` or `stuck`).
-- [ ] UI wiring in `app.ts`: Solve button calls `solve()`, paints result, shows status.
-- [ ] On `stuck`: preserve partial fill, display "needs more info — try backtracking in Phase 3".
+- [x] `src/solver/candidates.ts`: enumerate placements via stars-and-bars over slack; filter against known cells.
+- [x] `src/solver/linesolver.ts`: intersection-based `solveLine(line, hint)`.
+- [x] `src/solver/propagate.ts`: dirty-line fixed-point loop.
+- [x] `src/solver/validate.ts`: `satisfies(board, hints)`.
+- [x] `src/solver/index.ts`: public `solve(hints, opts)` calling propagate (returns `solved` or `stuck`).
+- [x] UI wiring in `app.ts`: Solve button calls `solve()`, paints result, shows status.
+- [x] On `stuck`: preserve partial fill, display "needs more info — try backtracking in Phase 3".
 
 ### Tests
-- [ ] `test/solver/candidates.test.ts` — count + filter correctness.
-- [ ] `test/solver/linesolver.test.ts` — classic overlap, contradiction, idempotence.
-- [ ] `test/solver/validate.test.ts` — ok cases + pinpointed failure cases.
-- [ ] `test/solver/solve.puzzles.test.ts` — line-solvable 5×5, 10×10, 15×15 fixtures.
-- [ ] **Invariant**: every `status === 'solved'` result passes `satisfies(result.board, hints)`.
+- [x] `test/solver/candidates.test.ts` — count + filter correctness.
+- [x] `test/solver/linesolver.test.ts` — classic overlap, contradiction, idempotence.
+- [x] `test/solver/validate.test.ts` — ok cases + pinpointed failure cases.
+- [x] `test/solver/solve.puzzles.test.ts` — line-solvable 5×5, 10×10, 15×15 fixtures.
+- [x] **Invariant**: every `status === 'solved'` result passes `satisfies(result.board, hints)`.
 
 **Acceptance**: solving a fixture puzzle in the browser paints the correct solution. Tests green.
 

@@ -1,6 +1,7 @@
 import { CellState, type Board, type Hints } from "../types";
 import { createBoard, getCell, setCell } from "../model/board";
 import { parseHintText, validateHints } from "../model/hints";
+import { solve } from "../solver/index";
 import { setStatus } from "./status";
 import {
   clearBoardDom,
@@ -86,8 +87,32 @@ function handleReset(
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
 }
 
-function handleSolveStub(): void {
-  setStatus("Solver not wired yet — coming in Phase 2.", "info");
+function handleSolve(boardRoot: HTMLElement): void {
+  const { hints, board } = state;
+  if (!hints || !board) {
+    setStatus("Initialize the board before solving.", "error");
+    return;
+  }
+  const result = solve(hints);
+  state.board = result.board;
+  renderBoard(boardRoot, result.board, hints, handleToggle);
+  switch (result.status) {
+    case "solved":
+      setStatus(`Solved in ${result.elapsedMs}ms.`, "success");
+      break;
+    case "stuck":
+      setStatus(
+        "Partially filled — needs more information. Backtracking not yet implemented.",
+        "info",
+      );
+      break;
+    case "contradiction":
+      setStatus("Contradiction — these hints have no solution.", "error");
+      break;
+    case "aborted":
+      setStatus("Solver gave up (budget exhausted).", "error");
+      break;
+  }
 }
 
 export function startApp(): void {
@@ -97,7 +122,7 @@ export function startApp(): void {
 
   wireControls(els, {
     onInitialize: (size, r, c) => handleInitialize(size, r, c, boardRoot),
-    onSolve: handleSolveStub,
+    onSolve: () => handleSolve(boardRoot),
     onClear: () => handleClear(boardRoot),
     onReset: () => handleReset(boardRoot, els),
   });

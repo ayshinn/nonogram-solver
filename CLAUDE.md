@@ -2,47 +2,63 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Commands
 
-A nonogram puzzle solver implemented in two parallel tracks:
-- **Web app** (`index.html`, `js/setup.js`, `css/style.css`) — browser-based, fully static, intended for GitHub Pages deployment
-- **Python prototype** (`py-solver/solver.py`) — experimental solver with text file input/output
-
-## Running the Project
-
-**Web app**: Open `index.html` directly in a browser (no build step, no server required). All paths are relative.
-
-**Python solver**:
 ```bash
-cd py-solver
-python solver.py
+npm install        # install dependencies
+npm run dev        # local dev server at http://localhost:5173
+npm run build      # typecheck + production build → dist/
+npm run preview    # serve the production build
+npm test           # run Vitest
+npm run test:watch # Vitest watch mode
+npm run typecheck  # tsc --noEmit only
 ```
-Input file is hardcoded in `main()` as `test2.txt`. Input format: first line is board size N, followed by 2N lines of comma-separated segment numbers (first N lines = column hints, next N lines = row hints). A line of `0` means no segments.
+
+## Project Context
+
+Browser-based nonogram puzzle player and solver. Vite + TypeScript + Vitest, no framework, vanilla DOM APIs, hand-written CSS. Deployable as a static site on GitHub Pages (`base: './'` in vite.config.ts).
+
+Phase-by-phase implementation plan is in `spec.md` (full spec) and `todo.md` (checklist). Phases 0 and 1 are complete. The plan file at `~/.claude/plans/focus-purely-on-the-mellow-marshmallow.md` has the full design rationale and working agreement.
+
+**Working agreement**: check off items in `todo.md` as they are completed.
 
 ## Architecture
 
-### Web App Data Model
+### Core types (`src/types.ts`)
+- `CellState` — `as const` object: `Unset=0, Filled=1, Empty=2`
+- `Board` — `{ size: number; cells: Uint8Array }` flat row-major array; index via `r * size + c`
+- `Hints` — `{ rows, cols, size }` where each row/col is `readonly number[]`
+- `SolveResult` — `{ status: 'solved'|'stuck'|'contradiction'|'aborted'; board; steps; elapsedMs }`
 
-Cell states: `UNSET=0`, `EMPTY=1`, `FILLED=2`. Left-click toggles fill; right-click marks empty/crossout.
+### Model (`src/model/`)
+- `board.ts` — `createBoard`, `cloneBoard`, `getCell`, `setCell`, `getRow`, `getCol`, `setRow`, `setCol`, `isComplete`
+- `hints.ts` — `parseHintText(text, size)` (newline/comma separated, lone `0` = empty hint, pads/truncates to size), `validateHints` (count, positivity, min-span, row/col totals), `deriveHintsFromBoard`
 
-The grid is a 2D array of integers. `rowHints` and `colHints` are arrays of arrays of numbers parsed from newline/comma-separated textarea input.
+### Solver (`src/solver/`) — Phase 2–3, not yet implemented
+Per spec: `candidates.ts` (stars-and-bars placement enumeration), `linesolver.ts` (intersection-based fixing), `propagate.ts` (dirty-queue fixed-point), `backtrack.ts` (DFS with step + wall-clock budget), `validate.ts` (`satisfies(board, hints)` — the critical invariant test: every `status === 'solved'` result must pass this).
 
-The table renders with one extra top row (column hints) and one extra left column (row hints), so board cell `[i][j]` maps to table `rows[i+1].cells[j+1]`.
+### UI (`src/ui/`)
+- `app.ts` — state machine (`board`, `hints`), coordinates all handlers
+- `boardView.ts` — renders CSS-Grid board once; diff-updates via `data-state` attribute. Exports `renderBoard`, `updateCell`, `focusCell`, `clearBoardDom`
+- `hintsView.ts` — renders row/col hint bands
+- `controls.ts` — wires 4 buttons (Initialize / Solve / Clear Board / Reset) + exposes `ControlElements`
+- `keyboard.ts` — arrow keys move focus (`focusCell`), Space/F fills, X crosses, Esc returns to controls
+- `status.ts` — `setStatus(msg, tone)` updates `#statusBar` aria-live region
 
-### Python Data Model
+### Styles (`src/styles/`)
+- `variables.css` — CSS tokens + light/dark theme via `prefers-color-scheme`. Key: `--cell-size: clamp(22px, 4.5vmin, 34px)`, `--n` set by boardView on the board root.
+- `layout.css` — two-column desktop layout, stacks at ≤720px, sticky controls panel
+- `board.css` — 4-region CSS Grid (corner / col-hints / row-hints / cells). Cells are `<button data-r data-c data-state>`. Thicker borders on every 5th row/col via `.cell--section-right` / `.cell--section-bottom` classes added at render time. `data-state="1"` = filled (solid), `data-state="2"` = empty (X via ::before/::after pseudo-elements).
 
-`numbers` is a flat list of length `2N`: indices `0..N-1` are column hint lines, indices `N..2N-1` are row hint lines. Each element is a list of `Segment` objects (`.number`, `.completed`). Board is `N×N` list of `Space` objects with `.status` and `.x_segment`/`.y_segment` tuples referencing their owning segment.
+### Tests (`test/`)
+- `fixtures/puzzles.ts` — `plus3x3`, `plus5x5`, `heart5x5` with verified hints + solutions
+- `model/hints.test.ts` — 16 tests covering all parse/validate/derive cases
 
-### Planned Features (from spec.md)
+## Key Constraints
+- Board shape: square N×N only (5–25). `Hints.size` bakes this in — rectangular support requires a refactor.
+- `noUncheckedIndexedAccess` is on: `arr[i]` returns `number | undefined`; use `!` or explicit checks.
+- `verbatimModuleSyntax` is on: use `import type` for type-only imports.
+- Solver budget (Phase 3): both `maxSteps` (~500k default) and `maxMs` (~2000ms default) — whichever trips first returns `status: 'aborted'`.
 
-The spec defines four implementation phases:
-1. **Phase 1** (partially done): Manual hint input, board rendering, cell toggling — `solveNonogram()` in JS is currently a random stub
-2. **Phase 2**: Image upload + canvas pixel parsing to auto-derive hints
-3. **Phase 3**: Deterministic line-solving algorithm (overlap method), with optional backtracking
-4. **Phase 4**: Polish, GitHub Pages deployment
-
-### Known Issues in Current Code
-
-- `js/setup.js`: `Segment` constructor uses `False` (Python syntax) instead of `false` — this will throw a ReferenceError at runtime when a Segment is instantiated
-- `js/setup.js`: Grid is still filled with `0` integers rather than `Space` objects (TODO in code)
-- `solveNonogram()` is a random fill placeholder, not a real solver
+## Python Prototype
+`py-solver/solver.py` is a standalone earlier attempt, not connected to the web app. Input format: first line = N, then 2N lines of comma-separated segment numbers (columns first, then rows). Run with `python solver.py` from `py-solver/`.
