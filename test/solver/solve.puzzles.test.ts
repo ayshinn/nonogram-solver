@@ -22,14 +22,6 @@ describe("solve — line-solvable fixtures", () => {
     });
   }
 
-  for (const fixture of backtrackFixtures) {
-    it(`${fixture.name} returns stuck (needs backtracking — Phase 3)`, () => {
-      const result = solve(fixture.hints);
-      expect(result.status).toBe("stuck");
-      // Partial board must still satisfy constraints on determined cells
-    });
-  }
-
   it("solution matches expected grid for plus3x3", () => {
     const result = solve(plus3x3.hints);
     expect(result.status).toBe("solved");
@@ -38,11 +30,6 @@ describe("solve — line-solvable fixtures", () => {
         expect(result.board.cells[r * 3 + c]).toBe(plus3x3.solution[r]![c]);
       }
     }
-  });
-
-  it("heart5x5 returns stuck (backtracking needed — Phase 3)", () => {
-    const result = solve(heart5x5.hints);
-    expect(result.status).toBe("stuck");
   });
 
   it("diamond10x10 solution satisfies invariant", () => {
@@ -67,10 +54,37 @@ describe("solve — line-solvable fixtures", () => {
   });
 });
 
+describe("solve — backtracking fixtures", () => {
+  for (const fixture of backtrackFixtures) {
+    it(`solves ${fixture.name} with backtracking`, () => {
+      const result = solve(fixture.hints);
+      expect(result.status).toBe("solved");
+      expect(satisfies(result.board, fixture.hints).ok).toBe(true);
+    });
+  }
+
+  it("heart5x5 solution matches expected grid", () => {
+    const result = solve(heart5x5.hints);
+    expect(result.status).toBe("solved");
+    for (let r = 0; r < 5; r++) {
+      for (let c = 0; c < 5; c++) {
+        expect(result.board.cells[r * 5 + c]).toBe(heart5x5.solution[r]![c]);
+      }
+    }
+  });
+
+  it("invariant: every solved backtrack result passes satisfies", () => {
+    for (const fixture of backtrackFixtures) {
+      const result = solve(fixture.hints);
+      if (result.status === "solved") {
+        expect(satisfies(result.board, fixture.hints).ok).toBe(true);
+      }
+    }
+  });
+});
+
 describe("solve — edge cases", () => {
   it("returns contradiction for impossible hints", () => {
-    // Row hint [3] and col hints [1],[1],[1] for a 3x3 —
-    // row 0 needs all 3 but cols allow only 1 each: contradiction
     const hints = {
       rows: [[3], [3], [3]],
       cols: [[1], [1], [1]],
@@ -89,5 +103,11 @@ describe("solve — edge cases", () => {
     const result = solve(hints);
     expect(result.status).toBe("solved");
     expect(Array.from(result.board.cells).every(c => c === E)).toBe(true);
+  });
+
+  it("returns aborted when step budget is exceeded", () => {
+    // A puzzle that requires backtracking, given an impossibly small budget
+    const result = solve(heart5x5.hints, { maxSteps: 0 });
+    expect(result.status).toBe("aborted");
   });
 });

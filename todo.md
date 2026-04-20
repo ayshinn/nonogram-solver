@@ -82,15 +82,15 @@ Goal: `solve()` works for puzzles that don't require guessing.
 
 Goal: `solve()` handles guess-required puzzles and enforces a budget.
 
-- [ ] `src/solver/backtrack.ts`: DFS with most-constrained-cell heuristic, Filled-first, step + time budget.
-- [ ] Extend `solve()`: if propagate returns `stuck`, call backtrack.
-- [ ] Return `aborted` when budget exhausted; UI surfaces "solver gave up".
-- [ ] Default `maxSteps = 500_000`, `maxMs = 2000` (overridable via `SolveOptions`).
+- [x] `src/solver/backtrack.ts`: DFS with most-constrained-cell heuristic, Filled-first, step + time budget.
+- [x] Extend `solve()`: if propagate returns `stuck`, call backtrack.
+- [x] Return `aborted` when budget exhausted; UI surfaces "solver gave up".
+- [x] Default `maxSteps = 500_000`, `maxMs = 2000` (overridable via `SolveOptions`).
 
 ### Tests
-- [ ] Puzzle in fixtures that requires backtracking; solver returns `solved` and passes `satisfies`.
-- [ ] Contradiction propagation: contradictory hints → `status: 'contradiction'`.
-- [ ] Budget exhaustion test: synthetic hard input → `status: 'aborted'`.
+- [x] Puzzle in fixtures that requires backtracking; solver returns `solved` and passes `satisfies`.
+- [x] Contradiction propagation: contradictory hints → `status: 'contradiction'`.
+- [x] Budget exhaustion test: synthetic hard input → `status: 'aborted'`.
 
 **Acceptance**: every fixture puzzle solves in the browser. Hard/ambiguous puzzles show a clear status.
 
