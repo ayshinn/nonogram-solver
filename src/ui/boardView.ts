@@ -1,4 +1,5 @@
 import { CellState, type Board, type Hints } from "../types";
+import { getCell } from "../model/board";
 import { renderHintBand } from "./hintsView";
 
 export type ToggleKind = "fill" | "cross";
@@ -45,8 +46,9 @@ export function renderBoard(
       }
       btn.dataset.r = String(r);
       btn.dataset.c = String(c);
-      btn.dataset.state = String(CellState.Unset);
-      btn.setAttribute("aria-label", ariaLabel(r, c, CellState.Unset));
+      const state = getCell(board, r, c);
+      btn.dataset.state = String(state);
+      btn.setAttribute("aria-label", ariaLabel(r, c, state));
       // -1 keeps cells out of the Tab sequence; arrow keys move focus instead.
       btn.tabIndex = r === 0 && c === 0 ? 0 : -1;
 
