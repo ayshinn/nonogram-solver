@@ -124,10 +124,72 @@ Goal: upload a clean B&W solved-board image → derived hints populate the UI.
 
 ---
 
+## Phase 6 — Screenshot Hint OCR (replaces Phase 4)
+
+Goal: upload a screenshot of an **unsolved** nonogram puzzle (hint numbers arranged around an empty grid) and have the app extract the hints (and ideally grid size) automatically — the flow users actually want.
+
+**Phase 4's solved-board pixel importer is removed in this phase.** The existing `#imageFile` input is repurposed for screenshot uploads. Generic utilities (`bitmapToImageData`, `sampleTile`) are retained.
+
+### Scope assumptions
+
+- Input is a reasonably clean screenshot from a nonogram app or print (not a photo with perspective distortion).
+- Top band contains column-hint numbers; left band contains row-hint numbers; the grid region is empty or mostly empty.
+- Puzzle is square; rectangular puzzles are deferred (already in follow-ups).
+
+### Cleanup (from Phase 4)
+
+- [x] Remove `parseImageData` and `parseImageFile` from `src/image/parser.ts` (keep `bitmapToImageData`).
+- [x] Delete `test/image/parser.test.ts`.
+- [x] Update the `#imageFile` field label in `index.html` from "solved-board image" to "puzzle screenshot".
+
+### Pipeline
+
+- [x] `src/image/detectGrid.ts`: locate the grid region.
+  - Convert to grayscale, compute horizontal + vertical projection profiles of dark pixels (reuse `sampleTile` for sub-region luminance).
+  - Find the largest axis-aligned rectangular region with regularly-spaced strong dark lines (the grid).
+  - Return `{ gridBox: {x,y,w,h}, cellSize, n }`.
+  - Fall back to the user-entered N if detection confidence is low.
+- [x] `src/image/extractHintRegions.ts`: given the grid box, slice the image into per-row and per-column hint strips.
+  - Column hints = image region above the grid, split into N vertical strips by grid column lines.
+  - Row hints = region to the left of the grid, split into N horizontal strips by grid row lines.
+- [ ] `src/image/ocr.ts`: wrap Tesseract.js (`npm i tesseract.js`) with a digit-whitelisted recognizer.
+  - Whitelist `0-9` only (`tessedit_char_whitelist`).
+  - Pre-binarize strips (adaptive threshold) before OCR to boost digit accuracy.
+  - Parse multi-digit tokens per strip; split on whitespace or newline; reject non-numeric junk.
+  - Return `number[]` per strip (empty array → `[]`, meaning no filled cells on that line).
+- [ ] `src/image/screenshotParser.ts`: orchestrate detectGrid → extractHintRegions → ocr → assemble `Hints`. Reuse `bitmapToImageData` for File → ImageData.
+- [ ] Tesseract worker lifecycle: lazy-load on first use, reuse worker across strips, terminate on reset.
+
+### UI
+
+- [ ] Update `handleImageFile` in `src/ui/app.ts` to call `screenshotParser` instead of the old solved-board pipeline.
+- [ ] Loading indicator while OCR runs (Tesseract is slow — seconds on larger grids).
+- [ ] **Hint review UX** — populate the textareas as before, but flag low-confidence entries.
+  - Status banner: "Imported — review highlighted hints before Initialize."
+  - Per-line confidence from Tesseract: outline textarea lines with low confidence via a subtle CSS marker.
+- [ ] On OCR failure: clear error status, leave textareas untouched.
+
+### Tests
+
+- [x] `test/image/detectGrid.test.ts`: synthetic images with known grid positions, assert detection to ±1 pixel.
+- [x] `test/image/extractHintRegions.test.ts`: strip bounds + `cropImageData` sub-rectangle copy.
+- [ ] `test/image/screenshotParser.test.ts`: one or two checked-in real screenshots + expected hints (golden-file test).
+- [ ] Graceful-failure tests: noisy input, wrong aspect ratio, no grid detected.
+
+### Non-goals for this phase
+
+- Handwriting / stylized fonts (only printed digits in the screenshot).
+- Skewed or rotated screenshots (require perspective correction first).
+- Multi-color or themed puzzle skins.
+- Rectangular grids (tracked separately in follow-ups).
+- Auto-initializing the board after import (user still clicks Initialize).
+
+**Acceptance**: user uploads a screenshot of a well-formed unsolved puzzle from a common nonogram app, clicks a single button, sees the hints populated correctly enough that Initialize + Solve reconstructs the intended solution. At least one golden-file test passes in CI. Phase 4 pixel-import code is gone.
+
+---
+
 ## Follow-ups (out of scope for initial rewrite)
 
-- [ ] OCR-based screenshot parsing (Tesseract.js) for actual nonogram-game screenshots with hint numbers.
-- [ ] Grid-line autodetection so N does not need to be pre-set for image import.
 - [ ] Ambiguous-puzzle detection (search for a second valid completion).
 - [ ] Drag-paint (click-and-drag applies the same transition across multiple cells).
 - [ ] Undo / redo stack.
