@@ -2,6 +2,7 @@ export interface ControlElements {
   readonly sizeInput: HTMLInputElement;
   readonly rowHints: HTMLTextAreaElement;
   readonly colHints: HTMLTextAreaElement;
+  readonly imageFile: HTMLInputElement;
   readonly initializeBtn: HTMLButtonElement;
   readonly solveBtn: HTMLButtonElement;
   readonly clearBtn: HTMLButtonElement;
@@ -17,6 +18,7 @@ export interface ControlHandlers {
   readonly onSolve: () => void;
   readonly onClear: () => void;
   readonly onReset: () => void;
+  readonly onImageFile: (file: File) => void;
 }
 
 export function findControls(): ControlElements {
@@ -24,6 +26,7 @@ export function findControls(): ControlElements {
     sizeInput: required<HTMLInputElement>("gridSize"),
     rowHints: required<HTMLTextAreaElement>("rowHints"),
     colHints: required<HTMLTextAreaElement>("colHints"),
+    imageFile: required<HTMLInputElement>("imageFile"),
     initializeBtn: required<HTMLButtonElement>("initializeBtn"),
     solveBtn: required<HTMLButtonElement>("solveBtn"),
     clearBtn: required<HTMLButtonElement>("clearBtn"),
@@ -42,6 +45,10 @@ export function wireControls(
   els.solveBtn.addEventListener("click", handlers.onSolve);
   els.clearBtn.addEventListener("click", handlers.onClear);
   els.resetBtn.addEventListener("click", handlers.onReset);
+  els.imageFile.addEventListener("change", () => {
+    const file = els.imageFile.files?.[0];
+    if (file) handlers.onImageFile(file);
+  });
 }
 
 export function clearHintTextareas(els: ControlElements): void {

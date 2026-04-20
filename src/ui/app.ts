@@ -1,6 +1,7 @@
 import { CellState, type Board, type Hints } from "../types";
 import { createBoard, getCell, setCell } from "../model/board";
-import { parseHintText, validateHints } from "../model/hints";
+import { deriveHintsFromBoard, parseHintText, validateHints } from "../model/hints";
+import { parseImageFile } from "../image/parser";
 import { solve } from "../solver/index";
 import { setStatus } from "./status";
 import {
@@ -87,6 +88,34 @@ function handleReset(
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
 }
 
+function formatHints(hints: readonly (readonly number[])[]): string {
+  return hints.map((h) => (h.length === 0 ? "0" : h.join(","))).join("\n");
+}
+
+async function handleImageFile(file: File, els: ControlElements): Promise<void> {
+  const size = Number.parseInt(els.sizeInput.value, 10);
+  if (!Number.isInteger(size) || size < 5 || size > 25) {
+    setStatus("Set grid size (5–25) before importing an image.", "error");
+    return;
+  }
+  setStatus(`Parsing image as ${size}×${size} grid…`, "info");
+  try {
+    const { board, warning } = await parseImageFile(file, size);
+    const derived = deriveHintsFromBoard(board);
+    els.rowHints.value = formatHints(derived.rows);
+    els.colHints.value = formatHints(derived.cols);
+    const suffix = warning ? ` ${warning}` : "";
+    setStatus(
+      `Image parsed. Review the hints, then click Initialize.${suffix}`,
+      warning ? "info" : "success",
+    );
+  } catch (err) {
+    setStatus(`Image import failed: ${(err as Error).message}`, "error");
+  } finally {
+    els.imageFile.value = "";
+  }
+}
+
 function handleSolve(boardRoot: HTMLElement): void {
   const { hints, board } = state;
   if (!hints || !board) {
@@ -125,6 +154,7 @@ export function startApp(): void {
     onSolve: () => handleSolve(boardRoot),
     onClear: () => handleClear(boardRoot),
     onReset: () => handleReset(boardRoot, els),
+    onImageFile: (file) => void handleImageFile(file, els),
   });
 
   attachKeyboard({

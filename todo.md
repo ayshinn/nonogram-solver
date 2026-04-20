@@ -100,13 +100,13 @@ Goal: `solve()` handles guess-required puzzles and enforces a budget.
 
 Goal: upload a clean B&W solved-board image → derived hints populate the UI.
 
-- [ ] `src/image/sampling.ts`: `sampleTile(imageData, x, y, w, h)` → mean luminance.
-- [ ] `src/image/parser.ts`: File → `ImageBitmap` → `OffscreenCanvas` (with hidden `<canvas>` fallback) → N×N tile sampling → binary `Board`.
-- [ ] Wire file input in `controls.ts`: after parse, call `deriveHintsFromBoard`, populate textareas, initialize board.
-- [ ] Error UI: invalid file type, parse failure, aspect-ratio warning.
+- [x] `src/image/sampling.ts`: `sampleTile(imageData, x, y, w, h)` → mean luminance.
+- [x] `src/image/parser.ts`: File → `ImageBitmap` → `OffscreenCanvas` (with hidden `<canvas>` fallback) → N×N tile sampling → binary `Board`.
+- [x] Wire file input in `controls.ts`: after parse, call `deriveHintsFromBoard`, populate textareas, initialize board.
+- [x] Error UI: invalid file type, parse failure, aspect-ratio warning.
 
 ### Tests
-- [ ] `test/image/parser.test.ts`: synthetic `ImageData` from a known board, round-trip through parser, assert derived hints match.
+- [x] `test/image/parser.test.ts`: synthetic `ImageData` from a known board, round-trip through parser, assert derived hints match.
 
 **Acceptance**: the user can upload a known solved-board PNG and see correct hints + board appear.
 
