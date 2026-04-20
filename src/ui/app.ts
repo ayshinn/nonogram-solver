@@ -2,6 +2,11 @@ import { CellState, type Board, type Hints } from "../types";
 import { createBoard, getCell, setCell } from "../model/board";
 import { parseHintText, validateHints } from "../model/hints";
 import { solve } from "../solver/index";
+import {
+  formatHintsAsText,
+  parseScreenshotFile,
+} from "../image/screenshotParser";
+import { terminateOcrWorker } from "../image/ocr";
 import { setStatus } from "./status";
 import {
   clearBoardDom,
@@ -85,16 +90,49 @@ function handleReset(
   els.colHints.value = "";
   els.imageFile.value = "";
   els.sizeInput.focus();
+  void terminateOcrWorker();
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
 }
 
-function handleImageFile(_file: File, els: ControlElements): void {
-  // TODO(phase-6 part-2): wire screenshot OCR (detectGrid → extractHintRegions → Tesseract).
-  setStatus(
-    "Screenshot OCR is in progress — please enter hints manually for now.",
-    "info",
-  );
-  els.imageFile.value = "";
+async function handleImageFile(
+  file: File,
+  els: ControlElements,
+): Promise<void> {
+  const size = Number.parseInt(els.sizeInput.value, 10);
+  if (!Number.isInteger(size) || size < 5 || size > 25) {
+    setStatus(
+      "Set a grid size between 5 and 25 before importing a screenshot.",
+      "error",
+    );
+    els.imageFile.value = "";
+    return;
+  }
+  els.imageFile.disabled = true;
+  setStatus("Reading screenshot — OCR may take a few seconds…", "info");
+  try {
+    const result = await parseScreenshotFile(file, size, {
+      onProgress: (done, total) => {
+        setStatus(`Recognizing hints — ${done}/${total} strips…`, "info");
+      },
+    });
+    els.rowHints.value = formatHintsAsText(result.hints.rows);
+    els.colHints.value = formatHintsAsText(result.hints.cols);
+    const lowConf = [...result.rowConfidences, ...result.colConfidences]
+      .filter((c) => c < 70).length;
+    if (lowConf > 0) {
+      setStatus(
+        `Imported — ${lowConf} line(s) had low OCR confidence, review before Initialize.`,
+        "info",
+      );
+    } else {
+      setStatus("Imported — review hints and click Initialize.", "success");
+    }
+  } catch (err) {
+    setStatus(`Screenshot import failed: ${(err as Error).message}`, "error");
+  } finally {
+    els.imageFile.disabled = false;
+    els.imageFile.value = "";
+  }
 }
 
 function handleSolve(boardRoot: HTMLElement): void {

@@ -152,18 +152,18 @@ Goal: upload a screenshot of an **unsolved** nonogram puzzle (hint numbers arran
 - [x] `src/image/extractHintRegions.ts`: given the grid box, slice the image into per-row and per-column hint strips.
   - Column hints = image region above the grid, split into N vertical strips by grid column lines.
   - Row hints = region to the left of the grid, split into N horizontal strips by grid row lines.
-- [ ] `src/image/ocr.ts`: wrap Tesseract.js (`npm i tesseract.js`) with a digit-whitelisted recognizer.
+- [x] `src/image/ocr.ts`: wrap Tesseract.js (`npm i tesseract.js`) with a digit-whitelisted recognizer.
   - Whitelist `0-9` only (`tessedit_char_whitelist`).
   - Pre-binarize strips (adaptive threshold) before OCR to boost digit accuracy.
   - Parse multi-digit tokens per strip; split on whitespace or newline; reject non-numeric junk.
   - Return `number[]` per strip (empty array → `[]`, meaning no filled cells on that line).
-- [ ] `src/image/screenshotParser.ts`: orchestrate detectGrid → extractHintRegions → ocr → assemble `Hints`. Reuse `bitmapToImageData` for File → ImageData.
-- [ ] Tesseract worker lifecycle: lazy-load on first use, reuse worker across strips, terminate on reset.
+- [x] `src/image/screenshotParser.ts`: orchestrate detectGrid → extractHintRegions → ocr → assemble `Hints`. Reuse `bitmapToImageData` for File → ImageData.
+- [x] Tesseract worker lifecycle: lazy-load on first use, reuse worker across strips, terminate on reset.
 
 ### UI
 
-- [ ] Update `handleImageFile` in `src/ui/app.ts` to call `screenshotParser` instead of the old solved-board pipeline.
-- [ ] Loading indicator while OCR runs (Tesseract is slow — seconds on larger grids).
+- [x] Update `handleImageFile` in `src/ui/app.ts` to call `screenshotParser` instead of the old solved-board pipeline.
+- [x] Loading indicator while OCR runs (Tesseract is slow — seconds on larger grids).
 - [ ] **Hint review UX** — populate the textareas as before, but flag low-confidence entries.
   - Status banner: "Imported — review highlighted hints before Initialize."
   - Per-line confidence from Tesseract: outline textarea lines with low confidence via a subtle CSS marker.
