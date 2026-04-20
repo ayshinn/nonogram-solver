@@ -41,6 +41,7 @@ function handleInitialize(
   rowText: string,
   colText: string,
   boardRoot: HTMLElement,
+  els: ControlElements,
 ): void {
   if (!Number.isInteger(size) || size < 5 || size > 25) {
     setStatus("Grid size must be an integer between 5 and 25.", "error");
@@ -62,6 +63,7 @@ function handleInitialize(
   }
   state.hints = hints;
   state.board = createBoard(size);
+  clearHintWarnings(els);
   renderBoard(boardRoot, state.board, state.hints, handleToggle);
   focusCell(0, 0);
   setStatus(
@@ -89,9 +91,37 @@ function handleReset(
   els.rowHints.value = "";
   els.colHints.value = "";
   els.imageFile.value = "";
+  clearHintWarnings(els);
   els.sizeInput.focus();
   void terminateOcrWorker();
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
+}
+
+const LOW_CONF_THRESHOLD = 70;
+
+function lowConfidenceIndices(
+  confidences: readonly number[],
+): number[] {
+  const out: number[] = [];
+  confidences.forEach((c, i) => {
+    if (c < LOW_CONF_THRESHOLD) out.push(i + 1); // 1-indexed for humans
+  });
+  return out;
+}
+
+function setHintWarning(el: HTMLElement, label: string, indices: number[]): void {
+  if (indices.length === 0) {
+    el.hidden = true;
+    el.textContent = "";
+  } else {
+    el.hidden = false;
+    el.textContent = `Low OCR confidence on ${label} ${indices.join(", ")} — review before Initialize.`;
+  }
+}
+
+function clearHintWarnings(els: ControlElements): void {
+  setHintWarning(els.rowHintsWarning, "row", []);
+  setHintWarning(els.colHintsWarning, "col", []);
 }
 
 async function handleImageFile(
@@ -108,6 +138,7 @@ async function handleImageFile(
     return;
   }
   els.imageFile.disabled = true;
+  clearHintWarnings(els);
   setStatus("Reading screenshot — OCR may take a few seconds…", "info");
   try {
     const result = await parseScreenshotFile(file, size, {
@@ -117,11 +148,14 @@ async function handleImageFile(
     });
     els.rowHints.value = formatHintsAsText(result.hints.rows);
     els.colHints.value = formatHintsAsText(result.hints.cols);
-    const lowConf = [...result.rowConfidences, ...result.colConfidences]
-      .filter((c) => c < 70).length;
-    if (lowConf > 0) {
+    const lowRows = lowConfidenceIndices(result.rowConfidences);
+    const lowCols = lowConfidenceIndices(result.colConfidences);
+    setHintWarning(els.rowHintsWarning, "row", lowRows);
+    setHintWarning(els.colHintsWarning, "col", lowCols);
+    const totalLow = lowRows.length + lowCols.length;
+    if (totalLow > 0) {
       setStatus(
-        `Imported — ${lowConf} line(s) had low OCR confidence, review before Initialize.`,
+        `Imported — ${totalLow} line(s) flagged for review before Initialize.`,
         "info",
       );
     } else {
@@ -169,7 +203,7 @@ export function startApp(): void {
   const els = findControls();
 
   wireControls(els, {
-    onInitialize: (size, r, c) => handleInitialize(size, r, c, boardRoot),
+    onInitialize: (size, r, c) => handleInitialize(size, r, c, boardRoot, els),
     onSolve: () => handleSolve(boardRoot),
     onClear: () => handleClear(boardRoot),
     onReset: () => handleReset(boardRoot, els),

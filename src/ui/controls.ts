@@ -2,6 +2,8 @@ export interface ControlElements {
   readonly sizeInput: HTMLInputElement;
   readonly rowHints: HTMLTextAreaElement;
   readonly colHints: HTMLTextAreaElement;
+  readonly rowHintsWarning: HTMLElement;
+  readonly colHintsWarning: HTMLElement;
   readonly imageFile: HTMLInputElement;
   readonly initializeBtn: HTMLButtonElement;
   readonly solveBtn: HTMLButtonElement;
@@ -26,6 +28,8 @@ export function findControls(): ControlElements {
     sizeInput: required<HTMLInputElement>("gridSize"),
     rowHints: required<HTMLTextAreaElement>("rowHints"),
     colHints: required<HTMLTextAreaElement>("colHints"),
+    rowHintsWarning: required<HTMLElement>("rowHintsWarning"),
+    colHintsWarning: required<HTMLElement>("colHintsWarning"),
     imageFile: required<HTMLInputElement>("imageFile"),
     initializeBtn: required<HTMLButtonElement>("initializeBtn"),
     solveBtn: required<HTMLButtonElement>("solveBtn"),

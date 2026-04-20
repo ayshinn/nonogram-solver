@@ -90,6 +90,17 @@ body {
   font-weight: 500;
 }
 
+.field-warning {
+  color: var(--danger);
+  font-size: 0.78rem;
+  font-weight: 500;
+  margin: 0;
+}
+
+.field-warning[hidden] {
+  display: none;
+}
+
 .field input,
 .field textarea {
   font-family: var(--font-mono);

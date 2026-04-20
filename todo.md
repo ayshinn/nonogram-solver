@@ -164,17 +164,17 @@ Goal: upload a screenshot of an **unsolved** nonogram puzzle (hint numbers arran
 
 - [x] Update `handleImageFile` in `src/ui/app.ts` to call `screenshotParser` instead of the old solved-board pipeline.
 - [x] Loading indicator while OCR runs (Tesseract is slow — seconds on larger grids).
-- [ ] **Hint review UX** — populate the textareas as before, but flag low-confidence entries.
+- [x] **Hint review UX** — populate the textareas as before, but flag low-confidence entries.
   - Status banner: "Imported — review highlighted hints before Initialize."
-  - Per-line confidence from Tesseract: outline textarea lines with low confidence via a subtle CSS marker.
-- [ ] On OCR failure: clear error status, leave textareas untouched.
+  - Per-line confidence from Tesseract: `.field-warning` element under each textarea lists low-confidence line numbers.
+- [x] On OCR failure: clear error status, leave textareas untouched.
 
 ### Tests
 
 - [x] `test/image/detectGrid.test.ts`: synthetic images with known grid positions, assert detection to ±1 pixel.
 - [x] `test/image/extractHintRegions.test.ts`: strip bounds + `cropImageData` sub-rectangle copy.
-- [ ] `test/image/screenshotParser.test.ts`: one or two checked-in real screenshots + expected hints (golden-file test).
-- [ ] Graceful-failure tests: noisy input, wrong aspect ratio, no grid detected.
+- [ ] `test/image/screenshotParser.test.ts`: one or two checked-in real screenshots + expected hints (golden-file test). **Deferred** — running real Tesseract in CI is slow and flaky; verify manually with `npm run dev` until we have a lightweight fixture.
+- [x] Graceful-failure tests: noisy input (`detectGrid` returns null for image without a grid), small-n rejected.
 
 ### Non-goals for this phase
 
