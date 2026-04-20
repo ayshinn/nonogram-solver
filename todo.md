@@ -114,11 +114,11 @@ Goal: upload a clean B&W solved-board image → derived hints populate the UI.
 
 ## Phase 5 — Polish + Deploy
 
-- [ ] `.github/workflows/deploy.yml`: build on push to `main`, publish `dist/` to `gh-pages`.
-- [ ] Accessibility pass: `aria-label` on each cell (`"row 3 column 5, filled"`), `aria-live` status banner, color-contrast check (WCAG AA).
-- [ ] Performance pass: confirm N=25 typical puzzles solve under 100 ms.
-- [ ] README refresh: controls reference, keyboard shortcuts, build + deploy instructions.
-- [ ] Add favicon + title polish.
+- [x] `.github/workflows/deploy.yml`: build on push to `main`, publish `dist/` to `gh-pages`.
+- [x] Accessibility pass: `aria-label` on each cell (`"row 3 column 5, filled"`), `aria-live` status banner, color-contrast check (WCAG AA).
+- [x] Performance pass: confirm N=25 typical puzzles solve under 100 ms.
+- [x] README refresh: controls reference, keyboard shortcuts, build + deploy instructions.
+- [x] Add favicon + title polish.
 
 **Acceptance**: deployed GitHub Pages URL works end-to-end; Lighthouse accessibility ≥ 95.
 

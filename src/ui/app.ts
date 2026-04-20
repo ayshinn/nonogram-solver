@@ -84,6 +84,7 @@ function handleReset(
   els.sizeInput.value = "5";
   els.rowHints.value = "";
   els.colHints.value = "";
+  els.imageFile.value = "";
   els.sizeInput.focus();
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
 }
@@ -131,7 +132,7 @@ function handleSolve(boardRoot: HTMLElement): void {
       break;
     case "stuck":
       setStatus(
-        "Partially filled — needs more information. Backtracking not yet implemented.",
+        "Partially filled — the solver could not complete this puzzle.",
         "info",
       );
       break;
