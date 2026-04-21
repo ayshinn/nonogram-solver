@@ -108,8 +108,10 @@ function chooseThreshold(lum: Uint8ClampedArray): { threshold: number; invert: b
 }
 
 // Binarize via Otsu and auto-invert dark-mode screenshots so text is always
-// dark on a light field. Returns a new ImageData that Tesseract can consume
-// directly (no DOM canvas required — works in Node and browser).
+// dark on a light field. The downstream bilinear upscale smooths these hard
+// black/white edges into anti-aliased ones, which the LSTM recognizer handles
+// well. Going all-grayscale (skipping Otsu) let gradient bg / noise survive
+// into OCR and caused digit confusions.
 export function preprocessForOcr(imageData: ImageData): ImageData {
   const { width, height } = imageData;
   const lum = computeLuminance(imageData);
@@ -162,24 +164,36 @@ async function imageDataToRecognizable(
   return PNG.sync.write(png);
 }
 
-// Nearest-neighbor upscaling. Small hint strips OCR poorly at native size;
-// tesseract wants ~30px char height. A 3× scale gets tiny phone-screenshot
-// digits into the sweet spot.
+// Bilinear upscaling. Small hint strips OCR poorly at native size; tesseract
+// wants ~30px glyphs. A 3× scale lands phone-screenshot digits in the sweet
+// spot. Bilinear (not nearest-neighbor) preserves glyph antialiasing — the
+// LSTM recognizer is trained on smooth edges, and blocky stair-stepped edges
+// can make a "5" get misread as "3".
 function upscale(imageData: ImageData, factor: number): ImageData {
-  const { width, height, data } = imageData;
-  const newW = width * factor;
-  const newH = height * factor;
+  const { width: w, height: h, data } = imageData;
+  const newW = w * factor;
+  const newH = h * factor;
   const out = new Uint8ClampedArray(newW * newH * 4);
   for (let y = 0; y < newH; y++) {
-    const srcY = Math.floor(y / factor);
+    const sy = (y + 0.5) / factor - 0.5;
+    const y0 = Math.max(0, Math.floor(sy));
+    const y1 = Math.min(h - 1, y0 + 1);
+    const fy = Math.max(0, Math.min(1, sy - y0));
     for (let x = 0; x < newW; x++) {
-      const srcX = Math.floor(x / factor);
-      const srcOff = (srcY * width + srcX) * 4;
-      const dstOff = (y * newW + x) * 4;
-      out[dstOff] = data[srcOff]!;
-      out[dstOff + 1] = data[srcOff + 1]!;
-      out[dstOff + 2] = data[srcOff + 2]!;
-      out[dstOff + 3] = data[srcOff + 3]!;
+      const sx = (x + 0.5) / factor - 0.5;
+      const x0 = Math.max(0, Math.floor(sx));
+      const x1 = Math.min(w - 1, x0 + 1);
+      const fx = Math.max(0, Math.min(1, sx - x0));
+      const d = (y * newW + x) * 4;
+      for (let c = 0; c < 4; c++) {
+        const p00 = data[(y0 * w + x0) * 4 + c]!;
+        const p01 = data[(y0 * w + x1) * 4 + c]!;
+        const p10 = data[(y1 * w + x0) * 4 + c]!;
+        const p11 = data[(y1 * w + x1) * 4 + c]!;
+        const top = p00 * (1 - fx) + p01 * fx;
+        const bot = p10 * (1 - fx) + p11 * fx;
+        out[d + c] = Math.round(top * (1 - fy) + bot * fy);
+      }
     }
   }
   return { data: out, width: newW, height: newH, colorSpace: "srgb" } as ImageData;
@@ -338,6 +352,65 @@ function groupSymbolsIntoHints(
   return digitsFromGroups(lines);
 }
 
+// Crop a col strip to its bottom-most ink cluster (the hint area immediately
+// above the grid). In un-cropped screenshots the col strip spans from the top
+// of the image, so it can capture unrelated chrome: puzzle number labels,
+// "hint" buttons, navigation icons — tesseract reads their edges as spurious
+// digits. By finding the large gap between chrome and hints and cropping below
+// it, OCR only sees the real hint stack.
+function tightenColStrip(strip: ImageData): ImageData {
+  const { width: w, height: h, data } = strip;
+  if (h < 20) return strip;
+  const lum = computeLuminance(strip);
+  const { threshold, invert } = chooseThreshold(lum);
+
+  const inkPerRow = new Int32Array(h);
+  for (let y = 0; y < h; y++) {
+    let count = 0;
+    for (let x = 0; x < w; x++) {
+      const v = lum[y * w + x]!;
+      const isDark = v <= threshold;
+      const fg = invert ? !isDark : isDark;
+      if (fg) count++;
+    }
+    inkPerRow[y] = count;
+  }
+  const inkMin = Math.max(1, Math.floor(w * 0.03));
+
+  let bottom = h - 1;
+  while (bottom >= 0 && inkPerRow[bottom]! < inkMin) bottom--;
+  if (bottom < 0) return strip;
+
+  // Tolerate small inter-line gaps within the hint stack (lines are typically
+  // ~char-height apart with a few px of padding); break only on the much
+  // larger gap that separates the hint stack from chrome above it.
+  const maxInnerGap = Math.max(30, Math.floor(h * 0.12));
+  let top = bottom;
+  let gapRun = 0;
+  for (let y = bottom - 1; y >= 0; y--) {
+    if (inkPerRow[y]! >= inkMin) {
+      top = y;
+      gapRun = 0;
+    } else if (++gapRun > maxInnerGap) {
+      break;
+    }
+  }
+
+  const pad = 6;
+  const y0 = Math.max(0, top - pad);
+  const y1 = Math.min(h, bottom + 1 + pad);
+  if (y0 === 0 && y1 === h) return strip;
+
+  const newH = y1 - y0;
+  const newData = new Uint8ClampedArray(w * newH * 4);
+  for (let y = 0; y < newH; y++) {
+    const srcOff = (y + y0) * w * 4;
+    const dstOff = y * w * 4;
+    newData.set(data.subarray(srcOff, srcOff + w * 4), dstOff);
+  }
+  return { data: newData, width: w, height: newH, colorSpace: "srgb" } as ImageData;
+}
+
 export async function recognizeStrip(
   imageData: ImageData,
   axis: StripAxis = "col",
@@ -349,7 +422,8 @@ export async function recognizeStrip(
   await worker.setParameters({
     tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
   });
-  const preprocessed = preprocessForOcr(imageData);
+  const stripInput = axis === "col" ? tightenColStrip(imageData) : imageData;
+  const preprocessed = preprocessForOcr(stripInput);
   const upscaled = upscale(preprocessed, 3);
   const input = await imageDataToRecognizable(upscaled);
   const { data } = await worker.recognize(input, {}, { blocks: true });
