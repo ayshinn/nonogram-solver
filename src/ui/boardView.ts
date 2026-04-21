@@ -151,6 +151,53 @@ export function clearBoardDom(root: HTMLElement): void {
   cellEls = [];
 }
 
+const MIN_CELL_PX = 14;
+const MAX_CELL_PX = 34;
+
+/**
+ * Resize the board's --cell-size so the grid + hint bands fit in the
+ * container without horizontal scroll. Measures hint bands at the current
+ * size, then scales linearly (hint font scales with cell size) to derive
+ * the largest size that fits both width and viewport height.
+ */
+export function fitBoardToContainer(
+  root: HTMLElement,
+  area: HTMLElement,
+): void {
+  const n = Number(root.dataset.size);
+  if (!Number.isFinite(n) || n <= 0) return;
+
+  const rowBand = root.querySelector<HTMLElement>(".board-row-hints");
+  const colBand = root.querySelector<HTMLElement>(".board-col-hints");
+  if (!rowBand || !colBand) return;
+
+  // Establish a known reference cell size, measure, then scale from it.
+  root.style.setProperty("--cell-size", `${MAX_CELL_PX}px`);
+  const refCell = MAX_CELL_PX;
+  const rowBandW = rowBand.offsetWidth;
+  const colBandH = colBand.offsetHeight;
+
+  const areaStyle = getComputedStyle(area);
+  const areaPadH =
+    parseFloat(areaStyle.paddingLeft) + parseFloat(areaStyle.paddingRight);
+  const availW = Math.max(0, area.clientWidth - areaPadH - 8);
+
+  const areaRect = area.getBoundingClientRect();
+  const availH = Math.max(200, window.innerHeight - areaRect.top - 80);
+
+  const rowScale = rowBandW / refCell;
+  const colScale = colBandH / refCell;
+
+  const boardPad = 20;
+
+  const cellW = (availW - boardPad) / (n + rowScale);
+  const cellH = (availH - boardPad) / (n + colScale);
+  const target = Math.floor(Math.min(cellW, cellH));
+  const cellSize = Math.max(MIN_CELL_PX, Math.min(MAX_CELL_PX, target));
+
+  root.style.setProperty("--cell-size", `${cellSize}px`);
+}
+
 function ariaLabel(r: number, c: number, state: CellState): string {
   const tone =
     state === CellState.Filled

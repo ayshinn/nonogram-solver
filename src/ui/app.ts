@@ -11,6 +11,7 @@ import { terminateOcrWorker } from "../image/ocr";
 import { setStatus } from "./status";
 import {
   clearBoardDom,
+  fitBoardToContainer,
   focusCell,
   renderBoard,
   updateCell,
@@ -78,6 +79,7 @@ function handleInitialize(
   els.solvePlayerBar.hidden = true;
   clearHintWarnings(els);
   renderBoard(boardRoot, state.board, state.hints, handleToggle);
+  fitBoardToArea(boardRoot);
   focusCell(0, 0);
   setStatus(
     `Board ready — ${size}×${size}. Click cells or use arrow keys + Space/X.`,
@@ -85,11 +87,17 @@ function handleInitialize(
   );
 }
 
+function fitBoardToArea(boardRoot: HTMLElement): void {
+  const area = boardRoot.parentElement;
+  if (area) fitBoardToContainer(boardRoot, area);
+}
+
 function handleClear(boardRoot: HTMLElement): void {
   if (!state.hints || !state.board) return;
   state.board = createBoard(state.board.size);
   state.player = null;
   renderBoard(boardRoot, state.board, state.hints, handleToggle);
+  fitBoardToArea(boardRoot);
   focusCell(0, 0);
   setStatus("Board cleared.", "info");
 }
@@ -222,6 +230,7 @@ function handleSolveInstant(boardRoot: HTMLElement): void {
   const result = solve(ready.hints);
   state.board = result.board;
   renderBoard(boardRoot, result.board, ready.hints, handleToggle);
+  fitBoardToArea(boardRoot);
   reportSolveResult(result);
 }
 
@@ -236,6 +245,7 @@ function handleSolveAnimated(
   const fresh = createBoard(ready.hints.size);
   state.board = fresh;
   renderBoard(boardRoot, fresh, ready.hints, handleToggle);
+  fitBoardToArea(boardRoot);
 
   const { result, trace } = solveWithTrace(ready.hints);
   setStatus(
@@ -276,6 +286,16 @@ export function startApp(): void {
     getBoard: () => state.board,
     onToggle: handleToggle,
     onEscape: () => els.initializeBtn.focus(),
+  });
+
+  let resizeRaf = 0;
+  window.addEventListener("resize", () => {
+    if (!state.board) return;
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      fitBoardToArea(boardRoot);
+    });
   });
 
   setStatus("Enter grid size and hints, then click Initialize.", "info");

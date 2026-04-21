@@ -1,12 +1,14 @@
 .board {
   display: grid;
-  grid-template-columns: auto auto;
-  grid-template-rows: auto auto;
+  grid-template-columns: max-content max-content;
+  grid-template-rows: max-content max-content;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: var(--space-2);
   box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+  width: max-content;
 }
 
 .board:empty {
@@ -23,15 +25,19 @@
   grid-row: 1;
   display: grid;
   grid-template-columns: repeat(var(--n, 5), var(--cell-size));
+  grid-auto-rows: max-content;
   align-items: end;
+  min-height: max-content;
 }
 
 .board-row-hints {
   grid-column: 1;
   grid-row: 2;
   display: grid;
+  grid-template-columns: max-content;
   grid-template-rows: repeat(var(--n, 5), var(--cell-size));
   justify-items: end;
+  min-width: max-content;
 }
 
 .board-cells {
@@ -68,9 +74,10 @@
   flex-direction: row;
   justify-content: flex-end;
   align-items: center;
-  gap: 4px;
-  padding: 0 var(--space-2) 0 var(--space-1);
+  gap: 6px;
+  padding: 0 var(--space-3) 0 var(--space-3);
   min-width: var(--cell-size);
+  white-space: nowrap;
   font-family: var(--font-mono);
   font-size: var(--hint-font);
   color: var(--text);
