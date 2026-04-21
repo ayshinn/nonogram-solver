@@ -33,7 +33,7 @@ npm run typecheck  # tsc --noEmit only
 
 ## Workflow
 
-1. **Set grid size** (5–25).
+1. **Set grid size** (5–30).
 2. **Enter hints** in the two textareas (one row/column per line, numbers comma-separated). Or **import a solved-board image** (PNG/JPG) — the app samples pixels and auto-fills the hint textareas.
 3. Click **Initialize** to create a playable board.
 4. Play manually, or click **Solve** to run the solver. Every solved result is validated against the hints before being accepted.

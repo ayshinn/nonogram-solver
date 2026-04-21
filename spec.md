@@ -136,7 +136,7 @@ Notes:
 
 ### 1. Manual setup
 1. User opens the page.
-2. User chooses grid size N (5–25).
+2. User chooses grid size N (5–30).
 3. User enters row hints (newline-separated rows, comma-separated numbers) and column hints in the same format.
 4. User clicks **Initialize Game**.
 5. The app validates input (counts match N, all values positive, each line fits) and renders the interactive board.
@@ -217,7 +217,7 @@ Reference: Jan Wolter, *Survey of Paint-by-Number Puzzle Solvers* — the inters
 
 - **Header**: title and short usage hint.
 - **Controls panel** (left on desktop, stacked above on mobile):
-  - Grid size input (`min=5`, `max=25`).
+  - Grid size input (`min=5`, `max=30`).
   - Row hints textarea, column hints textarea.
   - File input for image import.
   - Buttons: **Initialize Game**, **Solve**, **Clear Board**, **Reset**.

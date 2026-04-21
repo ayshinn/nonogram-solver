@@ -55,7 +55,7 @@ Per spec: `candidates.ts` (stars-and-bars placement enumeration), `linesolver.ts
 - `model/hints.test.ts` — 16 tests covering all parse/validate/derive cases
 
 ## Key Constraints
-- Board shape: square N×N only (5–25). `Hints.size` bakes this in — rectangular support requires a refactor.
+- Board shape: square N×N only (5–30). `Hints.size` bakes this in — rectangular support requires a refactor.
 - `noUncheckedIndexedAccess` is on: `arr[i]` returns `number | undefined`; use `!` or explicit checks.
 - `verbatimModuleSyntax` is on: use `import type` for type-only imports.
 - Solver budget (Phase 3): both `maxSteps` (~500k default) and `maxMs` (~2000ms default) — whichever trips first returns `status: 'aborted'`.

@@ -55,8 +55,8 @@ function handleInitialize(
   boardRoot: HTMLElement,
   els: ControlElements,
 ): void {
-  if (!Number.isInteger(size) || size < 5 || size > 25) {
-    setStatus("Grid size must be an integer between 5 and 25.", "error");
+  if (!Number.isInteger(size) || size < 5 || size > 30) {
+    setStatus("Grid size must be an integer between 5 and 30.", "error");
     return;
   }
   let rows, cols;
@@ -154,9 +154,9 @@ async function handleImageFile(
   els: ControlElements,
 ): Promise<void> {
   const size = Number.parseInt(els.sizeInput.value, 10);
-  if (!Number.isInteger(size) || size < 5 || size > 25) {
+  if (!Number.isInteger(size) || size < 5 || size > 30) {
     setStatus(
-      "Set a grid size between 5 and 25 before importing a screenshot.",
+      "Set a grid size between 5 and 30 before importing a screenshot.",
       "error",
     );
     els.imageFile.value = "";
