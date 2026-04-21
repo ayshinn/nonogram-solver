@@ -15,18 +15,39 @@
     <header class="site-header">
       <h1>Nonogram Solver</h1>
       <p class="site-tagline">
-        Enter hints manually or import a solved-board image, then play or solve.
+        Enter hints manually or import a puzzle screenshot, then play or solve.
       </p>
     </header>
 
     <main class="site-main">
       <section class="controls" aria-label="Puzzle setup">
-        <fieldset class="controls-group">
-          <legend>Puzzle</legend>
-          <label class="field">
-            <span class="field-label">Grid size (N &times; N, 5 to 25)</span>
+        <div class="controls-row">
+          <label class="field field--inline">
+            <span class="field-label">Grid size (5&ndash;25)</span>
             <input type="number" id="gridSize" min="5" max="25" value="5" />
           </label>
+          <label class="field field--inline">
+            <span class="field-label">Puzzle screenshot (PNG/JPG)</span>
+            <input
+              type="file"
+              id="imageFile"
+              accept="image/png,image/jpeg"
+            />
+          </label>
+        </div>
+
+        <button
+          type="button"
+          id="manualInputBtn"
+          class="btn btn--toggle"
+          aria-expanded="false"
+          aria-controls="manualHints"
+        >
+          <span class="btn-toggle-chevron" aria-hidden="true">&#9656;</span>
+          Manual Input
+        </button>
+
+        <div id="manualHints" class="controls-hints" hidden>
           <label class="field">
             <span class="field-label"
               >Row hints &mdash; one row per line, numbers separated by
@@ -62,17 +83,8 @@
               aria-live="polite"
             ></p>
           </label>
-          <label class="field">
-            <span class="field-label"
-              >Or import hints from a puzzle screenshot (PNG/JPG)</span
-            >
-            <input
-              type="file"
-              id="imageFile"
-              accept="image/png,image/jpeg"
-            />
-          </label>
-        </fieldset>
+        </div>
+
         <div class="controls-buttons">
           <button type="button" id="initializeBtn" class="btn btn--primary">
             Initialize

@@ -5,6 +5,8 @@ export interface ControlElements {
   readonly rowHintsWarning: HTMLElement;
   readonly colHintsWarning: HTMLElement;
   readonly imageFile: HTMLInputElement;
+  readonly manualInputBtn: HTMLButtonElement;
+  readonly manualHints: HTMLElement;
   readonly initializeBtn: HTMLButtonElement;
   readonly solveBtn: HTMLButtonElement;
   readonly clearBtn: HTMLButtonElement;
@@ -31,11 +33,21 @@ export function findControls(): ControlElements {
     rowHintsWarning: required<HTMLElement>("rowHintsWarning"),
     colHintsWarning: required<HTMLElement>("colHintsWarning"),
     imageFile: required<HTMLInputElement>("imageFile"),
+    manualInputBtn: required<HTMLButtonElement>("manualInputBtn"),
+    manualHints: required<HTMLElement>("manualHints"),
     initializeBtn: required<HTMLButtonElement>("initializeBtn"),
     solveBtn: required<HTMLButtonElement>("solveBtn"),
     clearBtn: required<HTMLButtonElement>("clearBtn"),
     resetBtn: required<HTMLButtonElement>("resetBtn"),
   };
+}
+
+export function setManualHintsExpanded(
+  els: ControlElements,
+  expanded: boolean,
+): void {
+  els.manualInputBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+  els.manualHints.hidden = !expanded;
 }
 
 export function wireControls(
@@ -52,6 +64,10 @@ export function wireControls(
   els.imageFile.addEventListener("change", () => {
     const file = els.imageFile.files?.[0];
     if (file) handlers.onImageFile(file);
+  });
+  els.manualInputBtn.addEventListener("click", () => {
+    const expanded = els.manualInputBtn.getAttribute("aria-expanded") === "true";
+    setManualHintsExpanded(els, !expanded);
   });
 }
 

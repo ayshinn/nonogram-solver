@@ -15,7 +15,12 @@ import {
   updateCell,
   type ToggleKind,
 } from "./boardView";
-import { findControls, wireControls, type ControlElements } from "./controls";
+import {
+  findControls,
+  setManualHintsExpanded,
+  wireControls,
+  type ControlElements,
+} from "./controls";
 import { attachKeyboard } from "./keyboard";
 
 interface AppState {
@@ -92,6 +97,7 @@ function handleReset(
   els.colHints.value = "";
   els.imageFile.value = "";
   clearHintWarnings(els);
+  setManualHintsExpanded(els, false);
   els.sizeInput.focus();
   void terminateOcrWorker();
   setStatus("Reset. Enter hints to start a new puzzle.", "info");
@@ -148,6 +154,7 @@ async function handleImageFile(
     });
     els.rowHints.value = formatHintsAsText(result.hints.rows);
     els.colHints.value = formatHintsAsText(result.hints.cols);
+    setManualHintsExpanded(els, true);
     const lowRows = lowConfidenceIndices(result.rowConfidences);
     const lowCols = lowConfidenceIndices(result.colConfidences);
     setHintWarning(els.rowHintsWarning, "row", lowRows);
