@@ -30,7 +30,7 @@ async function recognizeOneStrip(
     strip.w,
     strip.h,
   );
-  return recognizeStrip(crop);
+  return recognizeStrip(crop, strip.axis);
 }
 
 export async function parseScreenshotImage(
@@ -45,6 +45,15 @@ export async function parseScreenshotImage(
     );
   }
   const { gridBox, n, confidence } = detection;
+  if (process.env.OCR_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[parser] gridBox=%j cellSize=%f conf=%f",
+      gridBox,
+      detection.cellSize,
+      confidence,
+    );
+  }
   const regions = extractHintRegions(imageData.width, imageData.height, gridBox, n);
 
   const total = regions.rowStrips.length + regions.colStrips.length;

@@ -3,7 +3,16 @@
     "allow": [
       "Bash(npm run *)",
       "Bash(npm test *)",
-      "Bash(npm i *)"
+      "Bash(npm i *)",
+      "Bash(npx vitest *)",
+      "Bash(npm install *)",
+      "Bash(OCR_DEBUG=1 npx vitest run test/image/screenshotFixtures.test.ts)",
+      "Bash(python3 *)",
+      "Bash(mkdir -p /tmp/strip-debug)",
+      "Read(//tmp/**)",
+      "Bash(npx tsx *)",
+      "Bash(OCR_DEBUG=1 npm test -- screenshotFixtures)",
+      "Bash(git stash *)"
     ]
   }
 }
