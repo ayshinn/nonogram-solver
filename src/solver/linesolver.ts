@@ -1,11 +1,23 @@
 import { CellState, type Hint } from "../types";
+import type { LineKind, SolverEventSink } from "./events";
 import { getValidPlacements } from "./candidates";
 
 export type LineResult =
   | { ok: true; line: Uint8Array; changed: boolean }
   | { ok: false; contradiction: true };
 
-export function solveLine(line: Uint8Array, hint: Hint): LineResult {
+export interface LineContext {
+  readonly kind: LineKind;
+  readonly index: number;
+  readonly depth: number;
+  readonly onEvent?: SolverEventSink;
+}
+
+export function solveLine(
+  line: Uint8Array,
+  hint: Hint,
+  ctx?: LineContext,
+): LineResult {
   const candidates = getValidPlacements(line, hint);
 
   if (candidates.length === 0) {
@@ -30,12 +42,26 @@ export function solveLine(line: Uint8Array, hint: Hint): LineResult {
 
   for (let j = 0; j < L; j++) {
     if (result[j] !== CellState.Unset) continue;
+    let next: CellState | null = null;
     if (filledCount[j] === candidates.length) {
-      result[j] = CellState.Filled;
-      changed = true;
+      next = CellState.Filled;
     } else if (filledCount[j] === 0) {
-      result[j] = CellState.Empty;
+      next = CellState.Empty;
+    }
+    if (next !== null) {
+      result[j] = next;
       changed = true;
+      if (ctx?.onEvent) {
+        const r = ctx.kind === "row" ? ctx.index : j;
+        const c = ctx.kind === "row" ? j : ctx.index;
+        ctx.onEvent({
+          type: "cell-set",
+          r,
+          c,
+          state: next,
+          depth: ctx.depth,
+        });
+      }
     }
   }
 

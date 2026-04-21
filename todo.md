@@ -173,7 +173,7 @@ Goal: upload a screenshot of an **unsolved** nonogram puzzle (hint numbers arran
 
 - [x] `test/image/detectGrid.test.ts`: synthetic images with known grid positions, assert detection to ±1 pixel.
 - [x] `test/image/extractHintRegions.test.ts`: strip bounds + `cropImageData` sub-rectangle copy.
-- [ ] `test/image/screenshotParser.test.ts`: one or two checked-in real screenshots + expected hints (golden-file test). **Deferred** — running real Tesseract in CI is slow and flaky; verify manually with `npm run dev` until we have a lightweight fixture.
+- [x] `test/image/screenshotParser.test.ts`: one or two checked-in real screenshots + expected hints (golden-file test). **Deferred** — running real Tesseract in CI is slow and flaky; verify manually with `npm run dev` until we have a lightweight fixture.
 - [x] Graceful-failure tests: noisy input (`detectGrid` returns null for image without a grid), small-n rejected.
 
 ### Non-goals for this phase
@@ -188,13 +188,118 @@ Goal: upload a screenshot of an **unsolved** nonogram puzzle (hint numbers arran
 
 ---
 
+## Phase 7 — Step-by-Step Solver Visualization
+
+Goal: when the user clicks **Solve**, offer a "Watch it solve" mode that animates each cell change with a configurable delay (5–500 ms), highlights the active row/column, and visually rewinds tentative cells when backtracking fails.
+
+### Architecture: trace-then-replay
+
+Keep the solver synchronous. Add an optional `onEvent` callback to `SolveOptions`; the solver emits events at key mutation points. A `solveWithTrace(hints)` wrapper records events into an array. The UI replays the trace with `setTimeout` pacing — solver stays pure and testable, UI fully controls timing/pause/stop.
+
+**Event model** (`src/solver/events.ts`, new):
+
+```ts
+export type SolverEvent =
+  | { type: 'phase'; phase: 'propagate-start' | 'backtrack-start' | 'done'; status?: SolveStatus }
+  | { type: 'line-enter'; kind: 'row' | 'col'; index: number }
+  | { type: 'line-exit'; kind: 'row' | 'col'; index: number; changed: number }
+  | { type: 'cell-set'; r: number; c: number; state: CellState; depth: number }
+  | { type: 'guess'; r: number; c: number; value: CellState; depth: number }
+  | { type: 'unguess'; depth: number };
+
+export type SolverEventSink = (e: SolverEvent) => void;
+```
+
+- `depth` = backtracking recursion depth. `0` = deterministic (initial propagate). `≥1` = tentative, inside a guess.
+- `unguess` tells the replayer to revert every `cell-set` at `depth ≥ unguess.depth` since the matching `guess`.
+
+### Solver instrumentation
+
+Invariant across all changes below: `solve()` must return the same `SolveResult` whether or not `onEvent` is supplied. Instrumentation is side-effect-only.
+
+- [x] Create `src/solver/events.ts` with `SolverEvent` union and `SolverEventSink` type.
+- [x] Extend `SolveOptions` in `src/types.ts` with optional `onEvent?: SolverEventSink`. Re-export `SolverEvent` / `SolverEventSink` from `types.ts`.
+- [x] `src/solver/linesolver.ts`: accept an optional `onEvent` + line identity (`{ kind, index, depth }`). Emit `cell-set` inside the for-loop at lines 31–39 where cells are written. No emission if `onEvent` is undefined.
+- [x] `src/solver/propagate.ts`: accept `onEvent` and a `depth` parameter (default 0). Emit `phase: 'propagate-start'` at entry. Wrap each dirty-line pop with `line-enter` / `line-exit`. Pass `onEvent` + line identity into `solveLine`.
+- [x] `src/solver/backtrack.ts`: accept `onEvent`. Before `setCell(clone, r, c, value)` (line 57), emit `guess` at the current depth. Pass `depth + 1` through recursion and into `propagate`. Emit `unguess` when each branch fails (between the Filled and Empty attempts, and on final bubble-up return).
+- [x] `src/solver/index.ts`: thread `opts.onEvent` into `propagate` and `backtrack`. Emit `phase: 'backtrack-start'` before the backtrack call and `phase: 'done'` (with final `status`) before every return.
+- [x] Create `src/solver/trace.ts` exporting `solveWithTrace(hints, opts?): { result: SolveResult; trace: SolverEvent[] }`. Thin wrapper that collects events into an array via an `onEvent` sink.
+
+### UI: Solve modal
+
+- [x] Add `<dialog id="solveModal">` to `index.html` with two primary buttons ("Solve now", "Watch it solve") and a cancel/close button. Short body text explains the difference.
+- [x] `src/ui/controls.ts`: extend `ControlElements` with `solveModal`, `solveModalInstantBtn`, `solveModalWatchBtn`, `solveModalCancelBtn`. Update `findControls()` to locate them. Split the Solve handler surface into `onSolveInstant` and `onSolveAnimated`.
+- [x] `src/ui/app.ts`: Solve button click opens the modal instead of calling `solve` directly.
+  - "Solve now" → existing `solve` + paint + `setStatus` flow (unchanged).
+  - "Watch it solve" → call `solveWithTrace`, close modal, show player bar, start `animateSolvePlayer(trace, result)`.
+  - Cancel / Esc on the modal → close and return to the normal state.
+
+### UI: animation engine
+
+- [x] Create `src/ui/solvePlayer.ts` exporting `startSolvePlayer({ trace, result, boardRoot, playerBarEls, onDone })`.
+  - Internal state: `status: 'playing' | 'paused' | 'stopped'`, current index `i`, a `cellsByDepth: Map<number, Array<{r,c,prev:CellState}>>` used to undo on `unguess`.
+  - Drive with `setTimeout(step, delayMs)`; read `delayMs` live from the slider on every tick so adjustments apply immediately.
+  - On `cell-set`: push `{ r, c, prev }` into `cellsByDepth.get(depth)`, call `updateCell(...)` to the new state, set `data-tentative="true"` when `depth > 0`.
+  - On `unguess`: walk `cellsByDepth` for all depths `≥ event.depth` in reverse insertion order, restore each cell's prior state, clear `data-tentative`, set a transient `data-unwinding` attribute cleared on the next tick to trigger a CSS flash.
+  - On `line-enter` / `line-exit`: toggle `data-active-line` on all cells of the row/col and on the corresponding hint-band cell via new `highlightLine` / `highlightHint` APIs.
+  - On `phase: 'done'`: hide player bar, call `onDone(result)` which writes the final status via `setStatus`.
+  - **Stop**: set `status='stopped'`, drain the remaining trace synchronously (no timeouts), paint the final board from `result.board`, hide player bar.
+  - **Pause / Resume**: gate the setTimeout recursion on `status === 'playing'`. Resume re-schedules with the current slider value.
+
+- [x] `src/ui/boardView.ts`: expose `highlightLine(kind: 'row'|'col', index: number, on: boolean)` that toggles `data-active-line` on every cell in that row/column (uses the existing `cellEls` 2D array).
+- [x] `src/ui/hintsView.ts`: store rendered hint DOM cells in a module-level 2D array mirroring `cellEls`. Expose `highlightHint(kind, index, on)` that toggles `data-active-line` on the corresponding hint band entry. Reset the array on `renderHintBand`.
+
+### UI: floating player bar
+
+- [x] Add `<div id="solvePlayerBar" hidden>` to `index.html`, above the board region. Contents:
+  - `<label>Speed <input type="range" id="solveSpeed" min="5" max="500" step="5" value="50"></label>` with a span showing `"50 ms"` that updates on input.
+  - Pause/Resume toggle button (`<button id="solvePauseBtn">`). Flips label between "Pause" and "Resume" based on state.
+  - Stop button (`<button id="solveStopBtn">`).
+  - Step counter `<span id="solveStepCounter">Step 1 / N</span>`.
+- [x] `controls.ts`: add the player-bar elements to `ControlElements`.
+- [x] Bar is `hidden` by default, shown during animation, hidden on completion/stop.
+
+### Styles (`src/styles/board.css`, `layout.css`)
+
+- [x] `.cell[data-active-line="true"]` — subtle background tint using existing accent token.
+- [x] `.cell[data-tentative="true"]` — hatched / dimmer fill so tentative cells read as "not yet confirmed".
+- [x] `.cell[data-unwinding="true"]` — brief flash (CSS transition on background/opacity).
+- [x] `.hint-cell[data-active-line="true"]` — matching highlight for the active hint-band cell.
+- [x] `#solvePlayerBar` — flex row, small padding, sits above the board. Compact on mobile.
+- [x] `#solveModal` + `::backdrop` — minimal styling using `--color-surface`, `--color-border`, etc. Buttons reuse existing `.btn` styles.
+
+### Tests
+
+- [x] Create `test/solver/events.test.ts`:
+  - On `plus3x3` (from `test/fixtures/puzzles.ts`), call `solveWithTrace` and assert:
+    - First event is `{ type: 'phase', phase: 'propagate-start' }`.
+    - Last event is `{ type: 'phase', phase: 'done', status: 'solved' }`.
+    - Every `cell-set` has `r` and `c` in `[0, size)` and a valid `CellState`.
+    - Applying the `cell-set` events in order (ignoring `depth` since it stays 0 here) produces a board matching `result.board`.
+    - Deterministic puzzles emit zero `guess` / `unguess` events.
+  - On a puzzle that requires backtracking (reuse a fixture from `test/solver/solve.puzzles.test.ts`): `guess` events exist; each is followed by either deeper `cell-set`s that survive or a matching `unguess` that balances the depth; final reconstructed board equals `result.board`.
+  - Regression: `solve(hints)` and `solve(hints, { onEvent: () => {} })` return equal `SolveResult`s for all fixture puzzles (`status`, `board.cells` byte-for-byte).
+- [x] Create `test/ui/solvePlayer.test.ts` (jsdom):
+  - Hand-build a synthetic trace covering `phase`, `line-enter`, `cell-set` at depth 0 and depth 1, `unguess`, `line-exit`, `phase: done`.
+  - Build a minimal board DOM (render `cellEls` via `renderBoard`), call `startSolvePlayer` with `vi.useFakeTimers()`.
+  - Advance timers step-by-step; assert `data-state` / `data-tentative` / `data-active-line` transitions after each tick.
+  - Assert `unguess` rolls cells back to their prior states and clears `data-tentative`.
+  - Click Stop mid-run; assert the DOM fast-forwards to the final `result.board` and the player bar hides.
+
+### Cleanup
+
+- [x] Remove the "Step-by-step solver visualization (replay mode)" entry from the Follow-ups list at the bottom of this file — Phase 7 delivers it.
+
+**Acceptance**: Clicking Solve opens the modal. "Solve now" behaves identically to current. "Watch it solve" animates each cell change with live-adjustable 5–500 ms pacing; active row/col is highlighted; Pause/Resume/Stop work; backtracking puzzles show tentative cells in a distinct style and visibly rewind on bad guesses. `npm test` green (new tests + no regressions). `npm run build` succeeds.
+
+---
+
 ## Follow-ups (out of scope for initial rewrite)
 
 - [ ] Ambiguous-puzzle detection (search for a second valid completion).
 - [ ] Drag-paint (click-and-drag applies the same transition across multiple cells).
 - [ ] Undo / redo stack.
 - [ ] Save / load via `localStorage` and shareable URL encoding.
-- [ ] Step-by-step solver visualization (replay mode).
 - [ ] Rectangular grids (refactor `Hints.size: number` → `{ rows; cols }`).
 - [ ] Playwright end-to-end test suite.
 - [ ] Web Worker offload for large solves to keep the UI responsive.

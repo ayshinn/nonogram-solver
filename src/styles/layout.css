@@ -199,10 +199,113 @@ body {
 
 .board-area {
   display: flex;
-  justify-content: center;
-  align-items: start;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
   overflow: auto;
   padding: var(--space-3);
+  gap: var(--space-3);
+}
+
+.solve-player-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 640px;
+}
+
+.solve-player-bar[hidden] {
+  display: none;
+}
+
+.solve-player-speed {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 220px;
+  min-width: 180px;
+}
+
+.solve-player-speed-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.solve-player-speed input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.solve-player-speed-value {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  min-width: 4.5em;
+  text-align: right;
+}
+
+.solve-player-counter {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.solve-player-buttons {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.solve-modal {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-md);
+  max-width: 420px;
+  width: calc(100vw - 2 * var(--space-4));
+}
+
+.solve-modal::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.solve-modal-form {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.solve-modal-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.solve-modal-body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.solve-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding-top: var(--space-2);
 }
 
 .board-area:empty::before {

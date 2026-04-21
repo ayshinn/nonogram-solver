@@ -1,4 +1,5 @@
 import { CellState, type Board, type Hints } from "../types";
+import type { SolverEventSink } from "./events";
 import { cloneBoard, getCell, setCell } from "../model/board";
 import { propagate } from "./propagate";
 import { satisfies } from "./validate";
@@ -8,6 +9,7 @@ export interface BacktrackContext {
   readonly maxSteps: number;
   readonly maxMs: number;
   readonly startMs: number;
+  readonly onEvent?: SolverEventSink;
   steps: number;
 }
 
@@ -39,7 +41,11 @@ function pickCell(board: Board): [number, number] | null {
   return null;
 }
 
-export function backtrack(board: Board, ctx: BacktrackContext): BacktrackStatus {
+export function backtrack(
+  board: Board,
+  ctx: BacktrackContext,
+  depth: number = 1,
+): BacktrackStatus {
   const cell = pickCell(board);
   if (cell === null) {
     return satisfies(board, ctx.hints).ok ? "solved" : "contradiction";
@@ -54,21 +60,27 @@ export function backtrack(board: Board, ctx: BacktrackContext): BacktrackStatus 
     ctx.steps++;
 
     const clone = cloneBoard(board);
+    ctx.onEvent?.({ type: "guess", r, c, value, depth });
     setCell(clone, r, c, value);
+    ctx.onEvent?.({ type: "cell-set", r, c, state: value, depth });
 
-    const propStatus = propagate(clone, ctx.hints);
-    if (propStatus === "contradiction") continue;
+    const propStatus = propagate(clone, ctx.hints, depth, ctx.onEvent);
+    if (propStatus === "contradiction") {
+      ctx.onEvent?.({ type: "unguess", depth });
+      continue;
+    }
     if (propStatus === "solved") {
       board.cells.set(clone.cells);
       return "solved";
     }
 
-    const result = backtrack(clone, ctx);
+    const result = backtrack(clone, ctx, depth + 1);
     if (result === "solved") {
       board.cells.set(clone.cells);
       return "solved";
     }
     if (result === "aborted") return "aborted";
+    ctx.onEvent?.({ type: "unguess", depth });
   }
 
   return "contradiction";

@@ -17,6 +17,8 @@
   --cell-bg-hover: #f1f5f9;
   --cell-border: #cbd5e1;
   --cell-section-border: #475569;
+  --cell-active-line-bg: rgba(37, 99, 235, 0.12);
+  --cell-tentative: #64748b;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -61,6 +63,8 @@
     --cell-bg-hover: #172340;
     --cell-border: #1e293b;
     --cell-section-border: #64748b;
+    --cell-active-line-bg: rgba(96, 165, 250, 0.18);
+    --cell-tentative: #64748b;
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);

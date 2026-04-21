@@ -2,6 +2,11 @@ import type { Hint } from "../types";
 
 export type HintAxis = "row" | "col";
 
+const hintEls: Record<HintAxis, HTMLDivElement[]> = {
+  row: [],
+  col: [],
+};
+
 export function renderHintBand(
   container: HTMLElement,
   hints: readonly Hint[],
@@ -11,6 +16,8 @@ export function renderHintBand(
   const baseClass = axis === "row" ? "row-hints" : "col-hints";
   const sectionClass =
     axis === "row" ? "row-hints--section-bottom" : "col-hints--section-right";
+
+  hintEls[axis] = [];
 
   for (let i = 0; i < hints.length; i++) {
     const cell = document.createElement("div");
@@ -33,5 +40,25 @@ export function renderHintBand(
       }
     }
     container.appendChild(cell);
+    hintEls[axis].push(cell);
+  }
+}
+
+export function highlightHint(
+  axis: HintAxis,
+  index: number,
+  on: boolean,
+): void {
+  const el = hintEls[axis][index];
+  if (!el) return;
+  if (on) el.dataset.activeLine = "true";
+  else delete el.dataset.activeLine;
+}
+
+export function clearHintHighlights(): void {
+  for (const axis of ["row", "col"] as const) {
+    for (const el of hintEls[axis]) {
+      delete el.dataset.activeLine;
+    }
   }
 }

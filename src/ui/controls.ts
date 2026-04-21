@@ -11,6 +11,16 @@ export interface ControlElements {
   readonly solveBtn: HTMLButtonElement;
   readonly clearBtn: HTMLButtonElement;
   readonly resetBtn: HTMLButtonElement;
+  readonly solveModal: HTMLDialogElement;
+  readonly solveModalInstantBtn: HTMLButtonElement;
+  readonly solveModalWatchBtn: HTMLButtonElement;
+  readonly solveModalCancelBtn: HTMLButtonElement;
+  readonly solvePlayerBar: HTMLElement;
+  readonly solveSpeed: HTMLInputElement;
+  readonly solveSpeedValue: HTMLElement;
+  readonly solveStepCounter: HTMLElement;
+  readonly solvePauseBtn: HTMLButtonElement;
+  readonly solveStopBtn: HTMLButtonElement;
 }
 
 export interface ControlHandlers {
@@ -19,7 +29,9 @@ export interface ControlHandlers {
     rowText: string,
     colText: string,
   ) => void;
-  readonly onSolve: () => void;
+  readonly onSolveInstant: () => void;
+  readonly onSolveAnimated: () => void;
+  readonly onSolveCancel: () => void;
   readonly onClear: () => void;
   readonly onReset: () => void;
   readonly onImageFile: (file: File) => void;
@@ -39,6 +51,16 @@ export function findControls(): ControlElements {
     solveBtn: required<HTMLButtonElement>("solveBtn"),
     clearBtn: required<HTMLButtonElement>("clearBtn"),
     resetBtn: required<HTMLButtonElement>("resetBtn"),
+    solveModal: required<HTMLDialogElement>("solveModal"),
+    solveModalInstantBtn: required<HTMLButtonElement>("solveModalInstantBtn"),
+    solveModalWatchBtn: required<HTMLButtonElement>("solveModalWatchBtn"),
+    solveModalCancelBtn: required<HTMLButtonElement>("solveModalCancelBtn"),
+    solvePlayerBar: required<HTMLElement>("solvePlayerBar"),
+    solveSpeed: required<HTMLInputElement>("solveSpeed"),
+    solveSpeedValue: required<HTMLElement>("solveSpeedValue"),
+    solveStepCounter: required<HTMLElement>("solveStepCounter"),
+    solvePauseBtn: required<HTMLButtonElement>("solvePauseBtn"),
+    solveStopBtn: required<HTMLButtonElement>("solveStopBtn"),
   };
 }
 
@@ -50,6 +72,22 @@ export function setManualHintsExpanded(
   els.manualHints.hidden = !expanded;
 }
 
+export function openSolveModal(els: ControlElements): void {
+  if (typeof els.solveModal.showModal === "function") {
+    els.solveModal.showModal();
+  } else {
+    els.solveModal.setAttribute("open", "");
+  }
+}
+
+export function closeSolveModal(els: ControlElements): void {
+  if (typeof els.solveModal.close === "function") {
+    els.solveModal.close();
+  } else {
+    els.solveModal.removeAttribute("open");
+  }
+}
+
 export function wireControls(
   els: ControlElements,
   handlers: ControlHandlers,
@@ -58,7 +96,19 @@ export function wireControls(
     const size = Number.parseInt(els.sizeInput.value, 10);
     handlers.onInitialize(size, els.rowHints.value, els.colHints.value);
   });
-  els.solveBtn.addEventListener("click", handlers.onSolve);
+  els.solveBtn.addEventListener("click", () => openSolveModal(els));
+  els.solveModalInstantBtn.addEventListener("click", () => {
+    closeSolveModal(els);
+    handlers.onSolveInstant();
+  });
+  els.solveModalWatchBtn.addEventListener("click", () => {
+    closeSolveModal(els);
+    handlers.onSolveAnimated();
+  });
+  els.solveModalCancelBtn.addEventListener("click", () => {
+    closeSolveModal(els);
+    handlers.onSolveCancel();
+  });
   els.clearBtn.addEventListener("click", handlers.onClear);
   els.resetBtn.addEventListener("click", handlers.onReset);
   els.imageFile.addEventListener("change", () => {
@@ -68,6 +118,9 @@ export function wireControls(
   els.manualInputBtn.addEventListener("click", () => {
     const expanded = els.manualInputBtn.getAttribute("aria-expanded") === "true";
     setManualHintsExpanded(els, !expanded);
+  });
+  els.solveSpeed.addEventListener("input", () => {
+    els.solveSpeedValue.textContent = `${els.solveSpeed.value}\u00a0ms`;
   });
 }
 

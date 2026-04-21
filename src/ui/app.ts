@@ -1,7 +1,8 @@
-import { CellState, type Board, type Hints } from "../types";
+import { CellState, type Board, type Hints, type SolveResult } from "../types";
 import { createBoard, getCell, setCell } from "../model/board";
 import { parseHintText, validateHints } from "../model/hints";
 import { solve } from "../solver/index";
+import { solveWithTrace } from "../solver/trace";
 import {
   formatHintsAsText,
   parseScreenshotFile,
@@ -22,17 +23,22 @@ import {
   type ControlElements,
 } from "./controls";
 import { attachKeyboard } from "./keyboard";
+import { startSolvePlayer, type SolvePlayerHandle } from "./solvePlayer";
 
 interface AppState {
   board: Board | null;
   hints: Hints | null;
+  player: SolvePlayerHandle | null;
 }
 
-const state: AppState = { board: null, hints: null };
+const state: AppState = { board: null, hints: null, player: null };
 
 function handleToggle(r: number, c: number, kind: ToggleKind): void {
-  const { board } = state;
+  const { board, player } = state;
   if (!board) return;
+  if (player && player.getState() !== "done" && player.getState() !== "stopped") {
+    return; // Disable manual edits during animation.
+  }
   const current = getCell(board, r, c);
   const target: CellState =
     kind === "fill" ? CellState.Filled : CellState.Empty;
@@ -68,6 +74,8 @@ function handleInitialize(
   }
   state.hints = hints;
   state.board = createBoard(size);
+  state.player = null;
+  els.solvePlayerBar.hidden = true;
   clearHintWarnings(els);
   renderBoard(boardRoot, state.board, state.hints, handleToggle);
   focusCell(0, 0);
@@ -80,6 +88,7 @@ function handleInitialize(
 function handleClear(boardRoot: HTMLElement): void {
   if (!state.hints || !state.board) return;
   state.board = createBoard(state.board.size);
+  state.player = null;
   renderBoard(boardRoot, state.board, state.hints, handleToggle);
   focusCell(0, 0);
   setStatus("Board cleared.", "info");
@@ -91,6 +100,8 @@ function handleReset(
 ): void {
   state.board = null;
   state.hints = null;
+  state.player = null;
+  els.solvePlayerBar.hidden = true;
   clearBoardDom(boardRoot);
   els.sizeInput.value = "5";
   els.rowHints.value = "";
@@ -176,15 +187,7 @@ async function handleImageFile(
   }
 }
 
-function handleSolve(boardRoot: HTMLElement): void {
-  const { hints, board } = state;
-  if (!hints || !board) {
-    setStatus("Initialize the board before solving.", "error");
-    return;
-  }
-  const result = solve(hints);
-  state.board = result.board;
-  renderBoard(boardRoot, result.board, hints, handleToggle);
+function reportSolveResult(result: SolveResult): void {
   switch (result.status) {
     case "solved":
       setStatus(`Solved in ${result.elapsedMs}ms.`, "success");
@@ -204,6 +207,54 @@ function handleSolve(boardRoot: HTMLElement): void {
   }
 }
 
+function readyToSolve(): { hints: Hints; board: Board } | null {
+  const { hints, board } = state;
+  if (!hints || !board) {
+    setStatus("Initialize the board before solving.", "error");
+    return null;
+  }
+  return { hints, board };
+}
+
+function handleSolveInstant(boardRoot: HTMLElement): void {
+  const ready = readyToSolve();
+  if (!ready) return;
+  const result = solve(ready.hints);
+  state.board = result.board;
+  renderBoard(boardRoot, result.board, ready.hints, handleToggle);
+  reportSolveResult(result);
+}
+
+function handleSolveAnimated(
+  boardRoot: HTMLElement,
+  els: ControlElements,
+): void {
+  const ready = readyToSolve();
+  if (!ready) return;
+  // Reset the displayed board to empty before playing so the animation reflects
+  // the solver's reasoning from scratch.
+  const fresh = createBoard(ready.hints.size);
+  state.board = fresh;
+  renderBoard(boardRoot, fresh, ready.hints, handleToggle);
+
+  const { result, trace } = solveWithTrace(ready.hints);
+  setStatus(
+    `Watching solver — ${trace.length} events. Adjust speed, pause, or stop anytime.`,
+    "info",
+  );
+
+  state.player = startSolvePlayer({
+    trace,
+    result,
+    board: fresh,
+    els,
+    onDone: (final) => {
+      state.board = final.board;
+      reportSolveResult(final);
+    },
+  });
+}
+
 export function startApp(): void {
   const boardRoot = document.getElementById("board-root");
   if (!boardRoot) throw new Error("Missing #board-root");
@@ -211,7 +262,11 @@ export function startApp(): void {
 
   wireControls(els, {
     onInitialize: (size, r, c) => handleInitialize(size, r, c, boardRoot, els),
-    onSolve: () => handleSolve(boardRoot),
+    onSolveInstant: () => handleSolveInstant(boardRoot),
+    onSolveAnimated: () => handleSolveAnimated(boardRoot, els),
+    onSolveCancel: () => {
+      /* no-op */
+    },
     onClear: () => handleClear(boardRoot),
     onReset: () => handleReset(boardRoot, els),
     onImageFile: (file) => void handleImageFile(file, els),

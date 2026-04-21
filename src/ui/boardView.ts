@@ -80,6 +80,61 @@ export function updateCell(r: number, c: number, state: CellState): void {
   el.setAttribute("aria-label", ariaLabel(r, c, state));
 }
 
+export function setCellTentative(r: number, c: number, tentative: boolean): void {
+  const el = cellEls[r]?.[c];
+  if (!el) return;
+  if (tentative) {
+    el.dataset.tentative = "true";
+  } else {
+    delete el.dataset.tentative;
+  }
+}
+
+export function flashCellUnwind(r: number, c: number): void {
+  const el = cellEls[r]?.[c];
+  if (!el) return;
+  el.dataset.unwinding = "true";
+  // Clear on next frame so CSS can animate the transition.
+  setTimeout(() => {
+    const cur = cellEls[r]?.[c];
+    if (cur) delete cur.dataset.unwinding;
+  }, 180);
+}
+
+export function highlightLine(
+  kind: "row" | "col",
+  index: number,
+  on: boolean,
+): void {
+  const size = cellEls.length;
+  if (size === 0) return;
+  if (kind === "row") {
+    const row = cellEls[index];
+    if (!row) return;
+    for (const el of row) {
+      if (on) el.dataset.activeLine = "true";
+      else delete el.dataset.activeLine;
+    }
+  } else {
+    for (let r = 0; r < size; r++) {
+      const el = cellEls[r]?.[index];
+      if (!el) continue;
+      if (on) el.dataset.activeLine = "true";
+      else delete el.dataset.activeLine;
+    }
+  }
+}
+
+export function clearAllHighlights(): void {
+  for (const row of cellEls) {
+    for (const el of row) {
+      delete el.dataset.activeLine;
+      delete el.dataset.tentative;
+      delete el.dataset.unwinding;
+    }
+  }
+}
+
 export function focusCell(r: number, c: number): void {
   const previous = document.activeElement;
   if (previous instanceof HTMLElement && previous.classList.contains("cell")) {

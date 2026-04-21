@@ -98,9 +98,66 @@
       </section>
 
       <section class="board-area" aria-label="Puzzle board">
+        <div
+          id="solvePlayerBar"
+          class="solve-player-bar"
+          role="toolbar"
+          aria-label="Solver animation controls"
+          hidden
+        >
+          <label class="solve-player-speed">
+            <span class="solve-player-speed-label">Speed</span>
+            <input
+              type="range"
+              id="solveSpeed"
+              min="5"
+              max="500"
+              step="5"
+              value="300"
+              aria-label="Animation delay in milliseconds"
+            />
+            <span id="solveSpeedValue" class="solve-player-speed-value"
+              >300&nbsp;ms</span
+            >
+          </label>
+          <span id="solveStepCounter" class="solve-player-counter">Step 0 / 0</span>
+          <div class="solve-player-buttons">
+            <button type="button" id="solvePauseBtn" class="btn">Pause</button>
+            <button type="button" id="solveStopBtn" class="btn">Stop</button>
+          </div>
+        </div>
         <div id="board-root" class="board"></div>
       </section>
     </main>
+
+    <dialog id="solveModal" class="solve-modal" aria-labelledby="solveModalTitle">
+      <form method="dialog" class="solve-modal-form">
+        <h2 id="solveModalTitle" class="solve-modal-title">Solve the puzzle</h2>
+        <p class="solve-modal-body">
+          Solve it right away, or watch the solver work step by step — each cell
+          change is animated and you can adjust speed on the fly.
+        </p>
+        <div class="solve-modal-actions">
+          <button
+            type="button"
+            id="solveModalInstantBtn"
+            class="btn btn--primary"
+          >
+            Solve now
+          </button>
+          <button type="button" id="solveModalWatchBtn" class="btn">
+            Watch it solve
+          </button>
+          <button
+            type="button"
+            id="solveModalCancelBtn"
+            class="btn btn--ghost"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="statusBar" class="status" role="status" aria-live="polite"></div>
 

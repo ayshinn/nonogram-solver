@@ -22,12 +22,15 @@ export interface Placement {
   readonly starts: readonly number[];
 }
 
+export type SolveStatus = "solved" | "stuck" | "contradiction" | "aborted";
+
 export interface SolveOptions {
   readonly maxSteps?: number;
   readonly maxMs?: number;
+  readonly onEvent?: import("./solver/events").SolverEventSink;
 }
 
-export type SolveStatus = "solved" | "stuck" | "contradiction" | "aborted";
+export type { SolverEvent, SolverEventSink, LineKind } from "./solver/events";
 
 export interface SolveResult {
   readonly status: SolveStatus;
