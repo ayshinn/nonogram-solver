@@ -64,14 +64,50 @@ export function otsuThreshold(luminance: Uint8ClampedArray): number {
   return threshold;
 }
 
+// Strip-level brightness channel choice: HSV value (max(R,G,B)) when the
+// strip contains meaningfully saturated pixels, plain luminance otherwise.
+// Plain luminance puts orange digits (~156) in a different band from white
+// (255) — Otsu's refinement splits between them and drops one. V flattens
+// hue variation but thickens greyscale anti-aliased edges (3 → 5, missing
+// 6). Picking once per strip keeps the channel uniform across all pixels in
+// that strip, avoiding the per-pixel mode-switch artifacts that distort
+// digit shape inside a single-color strip.
 function computeLuminance(imageData: ImageData): Uint8ClampedArray {
   const { width, height, data } = imageData;
-  const out = new Uint8ClampedArray(width * height);
-  for (let i = 0; i < width * height; i++) {
+  const total = width * height;
+  let hasColor = false;
+  let coloredCount = 0;
+  const SAT_THRESHOLD = 40;
+  const COLOR_FRAC_THRESHOLD = 0.005;
+  for (let i = 0; i < total; i++) {
     const r = data[i * 4]!;
     const g = data[i * 4 + 1]!;
     const b = data[i * 4 + 2]!;
-    out[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    if (max - min > SAT_THRESHOLD && max > 80) {
+      coloredCount++;
+      if (coloredCount > total * COLOR_FRAC_THRESHOLD) {
+        hasColor = true;
+        break;
+      }
+    }
+  }
+  const out = new Uint8ClampedArray(total);
+  if (hasColor) {
+    for (let i = 0; i < total; i++) {
+      const r = data[i * 4]!;
+      const g = data[i * 4 + 1]!;
+      const b = data[i * 4 + 2]!;
+      out[i] = Math.max(r, g, b);
+    }
+  } else {
+    for (let i = 0; i < total; i++) {
+      const r = data[i * 4]!;
+      const g = data[i * 4 + 1]!;
+      const b = data[i * 4 + 2]!;
+      out[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+    }
   }
   return out;
 }
@@ -81,7 +117,18 @@ function computeLuminance(imageData: ImageData): Uint8ClampedArray {
 // lands the threshold at the chrome-vs-rest valley, lumping gradient bg with
 // text. So we run Otsu again inside the initial foreground class to find the
 // real bg/text split, and use the refined threshold when it's clearly shifted.
-function chooseThreshold(lum: Uint8ClampedArray): { threshold: number; invert: boolean } {
+//
+// Bimodal-foreground guard: when the original t1 already puts the subset
+// well above mid-luminance (mean(subset) high), the strip's foreground is
+// effectively text on dark background — refining further only carves a slice
+// off the existing text (multi-color digits, anti-aliased edges) and hurts
+// OCR. Refinement is meant for bg-pulled-into-fg cases (gradient bgs), where
+// the subset mean sits well below the text peak.
+function chooseThreshold(
+  lum: Uint8ClampedArray,
+  _width?: number,
+  _height?: number,
+): { threshold: number; invert: boolean } {
   const t1 = otsuThreshold(lum);
   let darkCount = 0;
   for (let i = 0; i < lum.length; i++) if (lum[i]! <= t1) darkCount++;
@@ -97,7 +144,19 @@ function chooseThreshold(lum: Uint8ClampedArray): { threshold: number; invert: b
   if (subset.length < 50 || subset.length > lum.length * 0.9) {
     return { threshold: t1, invert };
   }
+
   const t2 = otsuThreshold(new Uint8ClampedArray(subset));
+  if (process.env.OCR_DEBUG) {
+    // eslint-disable-next-line no-console
+    console.log(
+      "[chooseThreshold] N=%d invert=%s t1=%d t2=%d subsetLen=%d",
+      lum.length,
+      invert,
+      t1,
+      t2,
+      subset.length,
+    );
+  }
   // Only accept t2 when it's clearly shifted further into the foreground side.
   // For bright-text (invert=true), a real bg/text split pushes t2 well above
   // t1. If t2 stays near t1, pass 2 just bisected a unimodal subset — keep t1.
@@ -112,10 +171,20 @@ function chooseThreshold(lum: Uint8ClampedArray): { threshold: number; invert: b
 // black/white edges into anti-aliased ones, which the LSTM recognizer handles
 // well. Going all-grayscale (skipping Otsu) let gradient bg / noise survive
 // into OCR and caused digit confusions.
-export function preprocessForOcr(imageData: ImageData): ImageData {
+//
+// Optional pre-computed threshold/invert lets the caller share one decision
+// across both tightenColStrip's ink detection and the actual binarization.
+// Without that, a tightened strip with multi-colored text (e.g. orange "15"
+// next to white "5,2,1") gets a refined threshold that puts the orange on
+// the wrong side of the split, dropping it from the OCR input.
+export function preprocessForOcr(
+  imageData: ImageData,
+  presetDecision?: { threshold: number; invert: boolean },
+): ImageData {
   const { width, height } = imageData;
   const lum = computeLuminance(imageData);
-  const { threshold, invert } = chooseThreshold(lum);
+  const { threshold, invert } =
+    presetDecision ?? chooseThreshold(lum, width, height);
 
   const data = new Uint8ClampedArray(width * height * 4);
   for (let i = 0; i < lum.length; i++) {
@@ -256,10 +325,14 @@ function extractDigitSymbols(data: unknown): DigitSymbol[] {
 // higher-confidence one. Checking 2D (not just the primary axis) matters for
 // col strips, where side-by-side digits of a multi-digit number share a y-range
 // but have disjoint x-ranges.
+//
+// Exception: two same-digit symbols whose combined span is > 1.5× a single char
+// width are adjacent twins (e.g. the two "1"s in "11" with slightly overlapping
+// bboxes). Don't merge those — they represent two distinct digit slots.
 function dedupeOverlapping(symbols: readonly DigitSymbol[]): DigitSymbol[] {
   const out: DigitSymbol[] = [];
   for (const s of symbols) {
-    let replaced = false;
+    let isDuplicate = false;
     for (let i = 0; i < out.length; i++) {
       const prev = out[i]!;
       const dx =
@@ -269,12 +342,19 @@ function dedupeOverlapping(symbols: readonly DigitSymbol[]): DigitSymbol[] {
         Math.min(prev.bbox.y1, s.bbox.y1) -
         Math.max(prev.bbox.y0, s.bbox.y0);
       if (dx > 0 && dy > 0) {
+        if (prev.text === s.text) {
+          const spanX = Math.max(prev.bbox.x1, s.bbox.x1) - Math.min(prev.bbox.x0, s.bbox.x0);
+          const maxW = Math.max(prev.bbox.x1 - prev.bbox.x0, s.bbox.x1 - s.bbox.x0);
+          const spanY = Math.max(prev.bbox.y1, s.bbox.y1) - Math.min(prev.bbox.y0, s.bbox.y0);
+          const maxH = Math.max(prev.bbox.y1 - prev.bbox.y0, s.bbox.y1 - s.bbox.y0);
+          if (spanX > maxW * 1.5 || spanY > maxH * 1.5) break; // adjacent twins — keep both
+        }
         if (s.confidence > prev.confidence) out[i] = s;
-        replaced = true;
+        isDuplicate = true;
         break;
       }
     }
-    if (!replaced) out.push(s);
+    if (!isDuplicate) out.push(s);
   }
   return out;
 }
@@ -287,7 +367,9 @@ function digitsFromGroups(
   for (const g of groups) {
     const numStr = g.map((s) => s.text).join("");
     const n = Number.parseInt(numStr, 10);
-    if (Number.isInteger(n)) digits.push(n);
+    // Hint values are always >= 1; a "0" reading is always spurious noise
+    // (background artifact misread, or a hollow shape mistaken for a 0).
+    if (Number.isInteger(n) && n >= 1) digits.push(n);
     for (const s of g) if (s.confidence < minConfidence) minConfidence = s.confidence;
   }
   return { digits, minConfidence };
@@ -295,9 +377,12 @@ function digitsFromGroups(
 
 // Group symbols into hint numbers.
 //
-// Row strips: digits flow left-to-right. Hints are separated by wide horizontal
-// gaps; digits within one multi-digit number nearly touch. A gap threshold of
-// 0.5× median char width cleanly distinguishes the two.
+// Row strips: digits flow left-to-right. We use centroid-to-centroid distance
+// rather than raw bbox gap. Bbox gaps are unreliable on wide digits (2,3,5,8)
+// that nearly fill their slot — the gap between adjacent hint numbers can be
+// smaller than the gap between digits within a multi-digit number. Centroid
+// distance is ~1 slot pitch within a hint, ~1.5+ slot pitches between hints.
+// Threshold at 1.2× median char width separates the two cleanly.
 //
 // Col strips: hints are stacked vertically, one per line. Multi-digit numbers
 // like "12" sit side-by-side on the same line, sharing a y-range. A single
@@ -312,17 +397,42 @@ function groupSymbolsIntoHints(
   if (axis === "row") {
     const sorted = [...symbols].sort((a, b) => a.bbox.x0 - b.bbox.x0);
     const deduped = dedupeOverlapping(sorted);
+    if (deduped.length === 1) return digitsFromGroups([[deduped[0]!]]);
+
+    const centers = deduped.map((s) => (s.bbox.x0 + s.bbox.x1) / 2);
+    const distances: number[] = [];
+    for (let i = 1; i < centers.length; i++) {
+      distances.push(centers[i]! - centers[i - 1]!);
+    }
     const widths = deduped.map((s) => s.bbox.x1 - s.bbox.x0).sort((a, b) => a - b);
-    const medianW = widths[Math.floor(widths.length / 2)] ?? 0;
-    const gapThreshold = Math.max(4, medianW * 0.5);
+    const maxW = widths[widths.length - 1] ?? 0;
+
+    // Centroid distances cluster bimodally: intra-hint slot pitch (small) and
+    // inter-hint pitch (slot pitch + extra space). When the min/max ratio is
+    // close to 1, every distance is inter-hint — there are no multi-digit
+    // hints and everything should split. When the ratio is meaningfully below
+    // 1, the midpoint between min and max cleanly separates the two clusters.
+    // Bbox-gap (or width-times-constant) thresholds fail because the slot
+    // pitch varies between screenshots: skycastle's slot pitch is barely
+    // larger than its digit width, so a width-based threshold over-merges.
+    let pitchThreshold: number;
+    if (distances.length === 1) {
+      pitchThreshold = Math.max(8, maxW * 1.3);
+    } else {
+      const sortedD = [...distances].sort((a, b) => a - b);
+      const minD = sortedD[0]!;
+      const maxD = sortedD[sortedD.length - 1]!;
+      if (minD >= maxD * 0.85) {
+        pitchThreshold = 0; // uniform spacing → split everything
+      } else {
+        pitchThreshold = (minD + maxD) / 2;
+      }
+    }
 
     const groups: DigitSymbol[][] = [[deduped[0]!]];
     for (let i = 1; i < deduped.length; i++) {
-      const prev = deduped[i - 1]!;
-      const cur = deduped[i]!;
-      const gap = cur.bbox.x0 - prev.bbox.x1;
-      if (gap > gapThreshold) groups.push([cur]);
-      else groups[groups.length - 1]!.push(cur);
+      if (distances[i - 1]! > pitchThreshold) groups.push([deduped[i]!]);
+      else groups[groups.length - 1]!.push(deduped[i]!);
     }
     return digitsFromGroups(groups);
   }
@@ -358,11 +468,21 @@ function groupSymbolsIntoHints(
 // "hint" buttons, navigation icons — tesseract reads their edges as spurious
 // digits. By finding the large gap between chrome and hints and cropping below
 // it, OCR only sees the real hint stack.
-function tightenColStrip(strip: ImageData): ImageData {
+//
+// Returns the cropped strip plus the threshold/invert decision computed on
+// the *original* strip. Reusing that decision for the downstream binarization
+// avoids the case where a tightened strip's narrower histogram pushes Otsu
+// past one of the foreground colors (e.g. orange digits sitting between dark
+// bg and bright white digits — a refined per-tightened-strip Otsu can land
+// between them and drop the orange ones).
+function tightenColStrip(
+  strip: ImageData,
+): { strip: ImageData; decision: { threshold: number; invert: boolean } } {
   const { width: w, height: h, data } = strip;
-  if (h < 20) return strip;
   const lum = computeLuminance(strip);
-  const { threshold, invert } = chooseThreshold(lum);
+  const decision = chooseThreshold(lum, w, h);
+  if (h < 20) return { strip, decision };
+  const { threshold, invert } = decision;
 
   const inkPerRow = new Int32Array(h);
   for (let y = 0; y < h; y++) {
@@ -379,7 +499,7 @@ function tightenColStrip(strip: ImageData): ImageData {
 
   let bottom = h - 1;
   while (bottom >= 0 && inkPerRow[bottom]! < inkMin) bottom--;
-  if (bottom < 0) return strip;
+  if (bottom < 0) return { strip, decision };
 
   // Tolerate small inter-line gaps within the hint stack (lines are typically
   // ~char-height apart with a few px of padding); break only on the much
@@ -399,7 +519,7 @@ function tightenColStrip(strip: ImageData): ImageData {
   const pad = 6;
   const y0 = Math.max(0, top - pad);
   const y1 = Math.min(h, bottom + 1 + pad);
-  if (y0 === 0 && y1 === h) return strip;
+  if (y0 === 0 && y1 === h) return { strip, decision };
 
   const newH = y1 - y0;
   const newData = new Uint8ClampedArray(w * newH * 4);
@@ -408,7 +528,8 @@ function tightenColStrip(strip: ImageData): ImageData {
     const dstOff = y * w * 4;
     newData.set(data.subarray(srcOff, srcOff + w * 4), dstOff);
   }
-  return { data: newData, width: w, height: newH, colorSpace: "srgb" } as ImageData;
+  const cropped = { data: newData, width: w, height: newH, colorSpace: "srgb" } as ImageData;
+  return { strip: cropped, decision };
 }
 
 export async function recognizeStrip(
@@ -422,7 +543,8 @@ export async function recognizeStrip(
   await worker.setParameters({
     tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
   });
-  const stripInput = axis === "col" ? tightenColStrip(imageData) : imageData;
+  const stripInput =
+    axis === "col" ? tightenColStrip(imageData).strip : imageData;
   const preprocessed = preprocessForOcr(stripInput);
   const upscaled = upscale(preprocessed, 3);
   const input = await imageDataToRecognizable(upscaled);

@@ -15,13 +15,29 @@ interface Fixture {
   readonly expected: Hints;
 }
 
+// Fixture JSON uses the text-input convention where a lone "0" denotes an
+// empty hint line. The OCR pipeline returns the canonical internal form, [],
+// for empty lines. Normalize the fixture to canonical form for comparison.
+function normalizeHintLines(
+  lines: readonly (readonly number[])[],
+): readonly number[][] {
+  return lines.map((line) =>
+    line.length === 1 && line[0] === 0 ? [] : [...line],
+  );
+}
+
 function loadFixtures(): Fixture[] {
   const files = readdirSync(FIXTURES_DIR);
   const pngs = files.filter((f) => f.endsWith(".png"));
   return pngs.map((png) => {
     const name = basename(png, ".png");
     const jsonPath = join(FIXTURES_DIR, `${name}.json`);
-    const expected = JSON.parse(readFileSync(jsonPath, "utf8")) as Hints;
+    const raw = JSON.parse(readFileSync(jsonPath, "utf8")) as Hints;
+    const expected: Hints = {
+      size: raw.size,
+      rows: normalizeHintLines(raw.rows),
+      cols: normalizeHintLines(raw.cols),
+    };
     return { name, pngPath: join(FIXTURES_DIR, png), expected };
   });
 }

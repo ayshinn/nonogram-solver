@@ -3,3 +3,10 @@ dist
 coverage
 .vite
 .DS_Store
+.mystuff
+
+# tesseract runtime-downloaded language model
+eng.traineddata
+
+# ad-hoc OCR debugging scripts
+scripts/

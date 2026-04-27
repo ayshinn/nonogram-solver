@@ -13,7 +13,7 @@ export interface GridDetection {
 }
 
 const DARK_THRESHOLD = 128;
-const GRAD_THRESHOLD = 40; // per-pixel luminance delta that counts as an edge
+const GRAD_THRESHOLD = 20; // per-pixel luminance delta that counts as an edge
 const LINE_EDGE_FRACTION = 0.3; // a candidate line must have edges spanning ≥ this fraction of the axis
 const MATCH_TOLERANCE_FRACTION = 0.15; // a candidate line must fall within ±15% of a cell size to count
 
@@ -120,7 +120,7 @@ export function findEvenlySpacedGrid(
   const needed = expectedN + 1;
   if (lines.length < needed) return null;
 
-  let best: { first: number; last: number; matches: number } | null = null;
+  let best: { first: number; last: number; matches: number; residual: number } | null = null;
 
   for (let i = 0; i < lines.length; i++) {
     for (let j = i + needed - 1; j < lines.length; j++) {
@@ -132,18 +132,22 @@ export function findEvenlySpacedGrid(
       const tolerance = Math.max(2, cellSize * MATCH_TOLERANCE_FRACTION);
 
       let matches = 0;
+      let totalResidual = 0;
       for (let k = 0; k <= expectedN; k++) {
         const expected = first + k * cellSize;
+        let minDist = tolerance + 1;
         for (const line of lines) {
-          if (Math.abs(line - expected) <= tolerance) {
-            matches++;
-            break;
-          }
+          const d = Math.abs(line - expected);
+          if (d <= tolerance && d < minDist) minDist = d;
+        }
+        if (minDist <= tolerance) {
+          matches++;
+          totalResidual += minDist;
         }
       }
 
-      if (!best || matches > best.matches) {
-        best = { first, last, matches };
+      if (!best || matches > best.matches || (matches === best.matches && totalResidual < best.residual)) {
+        best = { first, last, matches, residual: totalResidual };
       }
     }
   }
