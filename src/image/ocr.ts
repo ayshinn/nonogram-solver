@@ -541,6 +541,13 @@ function tightenColStrip(
   return { strip: cropped, decision };
 }
 
+// Min confidence above which a col strip's first OCR pass is trusted without
+// running the second (flush-bottom) pass. galaxy30 col 16's misread came in at
+// 53; legitimate borderline reads (e.g. galaxy30 col 7=94, col 10=91) sit
+// well above 70. Tuned conservatively low to avoid unnecessary 2× OCR work
+// while still catching the misread regime.
+const DUAL_PASS_THRESHOLD = 70;
+
 async function recognizeStripOnce(
   worker: Worker,
   stripInput: ImageData,
@@ -595,16 +602,16 @@ export async function recognizeStrip(
   // 6 px of bottom whitespace gives the LSTM context most fixtures need, but
   // for some glyphs (notably a closed-loop "6" sitting near the strip's
   // bottom) any extra whitespace below the loop causes the LSTM to read it
-  // as an open-bottom "3". Run both regimes and take whichever returns the
-  // higher minimum-symbol confidence.
+  // as an open-bottom "3". When the padded pass returns a confident reading,
+  // skip the second pass entirely. Only when min-symbol confidence drops
+  // below DUAL_PASS_THRESHOLD do we re-run with bottom-flush cropping and
+  // pick the higher-confidence result (subject to a digit-count guard so a
+  // flush pass that dropped a glyph can't win).
   const padded = tightenColStrip(imageData, presetDecision, 6).strip;
-  const flush = tightenColStrip(imageData, presetDecision, 0).strip;
   const rA = await recognizeStripOnce(worker, padded, axis, presetDecision);
+  if (rA.confidence >= DUAL_PASS_THRESHOLD) return rA;
+  const flush = tightenColStrip(imageData, presetDecision, 0).strip;
   const rB = await recognizeStripOnce(worker, flush, axis, presetDecision);
-  // Prefer the padded pass by default — flush can drop a glyph if the strip's
-  // bottom is too aggressive. Only switch to flush when both passes detect the
-  // same number of digits (so neither lost a glyph) and flush has higher
-  // minimum-symbol confidence.
   if (rA.digits.length === rB.digits.length && rB.confidence > rA.confidence) {
     return rB;
   }
