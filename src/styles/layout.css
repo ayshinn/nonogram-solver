@@ -128,6 +128,44 @@ body {
   border-color: transparent;
 }
 
+/* Line-numbered textarea: gutter is an absolutely-positioned sibling whose
+ * scroll position is JS-synced to the textarea. Font + line-height + vertical
+ * padding must match the textarea exactly so digit rows line up with content
+ * rows. */
+.hint-input {
+  position: relative;
+  width: 100%;
+}
+
+.hint-input__textarea {
+  /* Reserve room for the gutter on the left. Width still 100% via parent. */
+  padding-left: calc(var(--hint-gutter-width) + var(--space-2));
+  line-height: var(--hint-input-line-height);
+}
+
+.hint-input__gutter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--hint-gutter-width);
+  padding: var(--space-2) var(--space-2);
+  margin: 1px 0 1px 1px; /* sit inside textarea border */
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: var(--hint-input-line-height);
+  color: var(--text-muted, #888);
+  background: var(--surface-3, var(--surface-2));
+  border-right: 1px solid var(--border);
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  text-align: right;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+  box-sizing: border-box;
+}
+
 .controls-buttons {
   display: flex;
   flex-wrap: wrap;

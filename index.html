@@ -53,12 +53,20 @@
               >Row hints &mdash; one row per line, numbers separated by
               commas</span
             >
-            <textarea
-              id="rowHints"
-              rows="6"
-              spellcheck="false"
-              placeholder="e.g.&#10;1&#10;3&#10;5&#10;3,1&#10;3"
-            ></textarea>
+            <div class="hint-input">
+              <div
+                id="rowHintsGutter"
+                class="hint-input__gutter"
+                aria-hidden="true"
+              ></div>
+              <textarea
+                id="rowHints"
+                class="hint-input__textarea"
+                rows="6"
+                spellcheck="false"
+                placeholder="e.g.&#10;1&#10;3&#10;5&#10;3,1&#10;3"
+              ></textarea>
+            </div>
             <p
               id="rowHintsWarning"
               class="field-warning"
@@ -70,12 +78,20 @@
             <span class="field-label"
               >Column hints &mdash; one column per line</span
             >
-            <textarea
-              id="colHints"
-              rows="6"
-              spellcheck="false"
-              placeholder="e.g.&#10;2&#10;4&#10;5&#10;2,1&#10;2"
-            ></textarea>
+            <div class="hint-input">
+              <div
+                id="colHintsGutter"
+                class="hint-input__gutter"
+                aria-hidden="true"
+              ></div>
+              <textarea
+                id="colHints"
+                class="hint-input__textarea"
+                rows="6"
+                spellcheck="false"
+                placeholder="e.g.&#10;2&#10;4&#10;5&#10;2,1&#10;2"
+              ></textarea>
+            </div>
             <p
               id="colHintsWarning"
               class="field-warning"

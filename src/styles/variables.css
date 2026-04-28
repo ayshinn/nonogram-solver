@@ -41,6 +41,9 @@
 
   --cell-size: clamp(22px, 4.5vmin, 34px);
   --hint-font: calc(var(--cell-size) * 0.46);
+
+  --hint-input-line-height: 1.4;
+  --hint-gutter-width: 2.4em;
 }
 
 @media (prefers-color-scheme: dark) {

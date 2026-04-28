@@ -18,7 +18,9 @@ import {
   type ToggleKind,
 } from "./boardView";
 import {
+  attachHintLineNumbers,
   findControls,
+  refreshHintLineNumbers,
   setManualHintsExpanded,
   wireControls,
   type ControlElements,
@@ -173,6 +175,7 @@ async function handleImageFile(
     });
     els.rowHints.value = formatHintsAsText(result.hints.rows);
     els.colHints.value = formatHintsAsText(result.hints.cols);
+    refreshHintLineNumbers(els);
     setManualHintsExpanded(els, true);
     const lowRows = lowConfidenceIndices(result.rowConfidences);
     const lowCols = lowConfidenceIndices(result.colConfidences);
@@ -269,6 +272,7 @@ export function startApp(): void {
   const boardRoot = document.getElementById("board-root");
   if (!boardRoot) throw new Error("Missing #board-root");
   const els = findControls();
+  attachHintLineNumbers(els);
 
   wireControls(els, {
     onInitialize: (size, r, c) => handleInitialize(size, r, c, boardRoot, els),
