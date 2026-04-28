@@ -477,10 +477,12 @@ function groupSymbolsIntoHints(
 // between them and drop the orange ones).
 function tightenColStrip(
   strip: ImageData,
+  presetDecision?: { threshold: number; invert: boolean },
+  padBottom: number = 6,
 ): { strip: ImageData; decision: { threshold: number; invert: boolean } } {
   const { width: w, height: h, data } = strip;
   const lum = computeLuminance(strip);
-  const decision = chooseThreshold(lum, w, h);
+  const decision = presetDecision ?? chooseThreshold(lum, w, h);
   if (h < 20) return { strip, decision };
   const { threshold, invert } = decision;
 
@@ -516,9 +518,16 @@ function tightenColStrip(
     }
   }
 
-  const pad = 6;
-  const y0 = Math.max(0, top - pad);
-  const y1 = Math.min(h, bottom + 1 + pad);
+  // padBottom is caller-controlled. Two regimes co-exist:
+  // - 6 px (default): a context buffer below the bottommost glyph. Most
+  //   fixtures need this — over-tight bottom can flip a "3" to a "5", etc.
+  // - 0 px: flush to last ink row. galaxy30 col 16's bottom "6" misreads as
+  //   "3" with any bottom padding (extra whitespace below the loop confuses
+  //   the LSTM). The dual-pass logic in `recognizeStrip` runs both regimes
+  //   and keeps the higher-confidence reading per strip.
+  const padTop = 6;
+  const y0 = Math.max(0, top - padTop);
+  const y1 = Math.min(h, bottom + 1 + padBottom);
   if (y0 === 0 && y1 === h) return { strip, decision };
 
   const newH = y1 - y0;
@@ -532,20 +541,13 @@ function tightenColStrip(
   return { strip: cropped, decision };
 }
 
-export async function recognizeStrip(
-  imageData: ImageData,
-  axis: StripAxis = "col",
+async function recognizeStripOnce(
+  worker: Worker,
+  stripInput: ImageData,
+  axis: StripAxis,
+  presetDecision: { threshold: number; invert: boolean } | undefined,
 ): Promise<StripResult> {
-  const worker = await getWorker();
-  // SINGLE_BLOCK handles both axes reliably: isolated single digits and
-  // vertically-stacked col hints both OCR cleanly, whereas SPARSE_TEXT
-  // silently drops strips with a single glyph.
-  await worker.setParameters({
-    tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
-  });
-  const stripInput =
-    axis === "col" ? tightenColStrip(imageData).strip : imageData;
-  const preprocessed = preprocessForOcr(stripInput);
+  const preprocessed = preprocessForOcr(stripInput, presetDecision);
   const upscaled = upscale(preprocessed, 3);
   const input = await imageDataToRecognizable(upscaled);
   const { data } = await worker.recognize(input, {}, { blocks: true });
@@ -555,13 +557,14 @@ export async function recognizeStrip(
   if (process.env.OCR_DEBUG) {
     // eslint-disable-next-line no-console
     console.log(
-      "[ocr] axis=%s w=%d h=%d text=%j digits=%j syms=%d",
+      "[ocr] axis=%s w=%d h=%d text=%j digits=%j syms=%d minConf=%s",
       axis,
-      imageData.width,
-      imageData.height,
+      stripInput.width,
+      stripInput.height,
       rawText,
       digits,
       symbols.length,
+      minConfidence.toFixed(1),
     );
   }
   return {
@@ -569,4 +572,41 @@ export async function recognizeStrip(
     confidence: symbols.length > 0 ? minConfidence : data.confidence ?? 0,
     rawText,
   };
+}
+
+export async function recognizeStrip(
+  imageData: ImageData,
+  axis: StripAxis = "col",
+  presetDecision?: { threshold: number; invert: boolean },
+): Promise<StripResult> {
+  const worker = await getWorker();
+  // SINGLE_BLOCK handles both axes reliably: isolated single digits and
+  // vertically-stacked col hints both OCR cleanly, whereas SPARSE_TEXT
+  // silently drops strips with a single glyph.
+  await worker.setParameters({
+    tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+  });
+
+  if (axis !== "col") {
+    return recognizeStripOnce(worker, imageData, axis, presetDecision);
+  }
+
+  // Dual-pass for col strips. tightenColStrip's bottom padding is a tradeoff:
+  // 6 px of bottom whitespace gives the LSTM context most fixtures need, but
+  // for some glyphs (notably a closed-loop "6" sitting near the strip's
+  // bottom) any extra whitespace below the loop causes the LSTM to read it
+  // as an open-bottom "3". Run both regimes and take whichever returns the
+  // higher minimum-symbol confidence.
+  const padded = tightenColStrip(imageData, presetDecision, 6).strip;
+  const flush = tightenColStrip(imageData, presetDecision, 0).strip;
+  const rA = await recognizeStripOnce(worker, padded, axis, presetDecision);
+  const rB = await recognizeStripOnce(worker, flush, axis, presetDecision);
+  // Prefer the padded pass by default — flush can drop a glyph if the strip's
+  // bottom is too aggressive. Only switch to flush when both passes detect the
+  // same number of digits (so neither lost a glyph) and flush has higher
+  // minimum-symbol confidence.
+  if (rA.digits.length === rB.digits.length && rB.confidence > rA.confidence) {
+    return rB;
+  }
+  return rA;
 }
